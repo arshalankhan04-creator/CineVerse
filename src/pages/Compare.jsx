@@ -238,7 +238,7 @@ export default function Compare() {
           {/* Slot B Input */}
           <div ref={containerRefB} className="relative">
             <h2 className="text-body-lg font-bold text-on-background mb-2 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-secondary-fixed-dim text-white flex items-center justify-center text-[11px] font-black">B</span>
+              <span className="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center text-[11px] font-black">B</span>
               Slot B
             </h2>
             {slotB ? (

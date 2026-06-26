@@ -2,8 +2,8 @@ const request = require('supertest');
 const app = require('../backend/server');
 
 describe('Trivia & Leaderboard E2E Tests (F6)', () => {
-  const user1 = { username: 'playerone', email: 'one@example.com', password: 'password123' };
-  const user2 = { username: 'playertwo', email: 'two@example.com', password: 'password123' };
+  const user1 = { username: 'playerone', email: 'one@example.com', password: 'Password123!' };
+  const user2 = { username: 'playertwo', email: 'two@example.com', password: 'Password123!' };
   let token1, token2;
 
   beforeEach(async () => {
@@ -65,7 +65,7 @@ describe('Trivia & Leaderboard E2E Tests (F6)', () => {
       // Submit 12 different scores
       for (let i = 1; i <= 12; i++) {
         // Register a temporary user for each score to make it distinct
-        const tempUser = { username: `user_${i}`, email: `user_${i}@example.com`, password: 'password123' };
+        const tempUser = { username: `user_${i}`, email: `user_${i}@example.com`, password: 'Password123!' };
         const regRes = await request(app).post('/api/auth/register').send(tempUser);
         const tempToken = regRes.body.token;
 

@@ -119,6 +119,69 @@ export default function Profile() {
     );
   }
 
+  const badges = [
+    {
+      id: 'cinephile',
+      name: 'Cinephile',
+      description: 'Watch more movies to level up',
+      icon: 'movie_filter',
+      isUnlocked: (watchedStats?.moviesWatchedCount || 0) >= 1,
+      tier: (watchedStats?.moviesWatchedCount || 0) >= 30 ? 'Platinum' : (watchedStats?.moviesWatchedCount || 0) >= 15 ? 'Gold' : (watchedStats?.moviesWatchedCount || 0) >= 5 ? 'Silver' : (watchedStats?.moviesWatchedCount || 0) >= 1 ? 'Bronze' : 'Locked',
+      requirement: 'Bronze: 1, Silver: 5, Gold: 15, Plat: 30 titles watched',
+      progress: `${watchedStats?.moviesWatchedCount || 0} watched`
+    },
+    {
+      id: 'marathoner',
+      name: 'Marathoner',
+      description: 'Spend 24 hours watching movies/shows',
+      icon: 'avg_time',
+      isUnlocked: (watchedStats?.totalWatchTimeMinutes || 0) >= 1440,
+      tier: (watchedStats?.totalWatchTimeMinutes || 0) >= 1440 ? 'Unlocked' : 'Locked',
+      requirement: 'Watch at least 24 hours (1440 mins) of content',
+      progress: `${Math.round(watchedStats?.totalWatchTimeMinutes || 0)} / 1440 mins`
+    },
+    {
+      id: 'trivia_master',
+      name: 'Trivia Master',
+      description: 'Score 10/10 on Medium or Hard trivia',
+      icon: 'military_tech',
+      isUnlocked: localStorage.getItem('cineverse_badge_trivia_master') === 'true',
+      tier: localStorage.getItem('cineverse_badge_trivia_master') === 'true' ? 'Unlocked' : 'Locked',
+      requirement: 'Get a perfect 10/10 on Medium/Hard difficulty',
+      progress: localStorage.getItem('cineverse_badge_trivia_master') === 'true' ? 'Perfect score' : 'No perfect score yet'
+    },
+    {
+      id: 'genre_explorer',
+      name: 'Genre Explorer',
+      description: 'Add 5+ favorite genres in preferences',
+      icon: 'travel_explore',
+      isUnlocked: favoriteGenres.length >= 5,
+      tier: favoriteGenres.length >= 5 ? 'Unlocked' : 'Locked',
+      requirement: 'Select 5 or more favorite genres in profile',
+      progress: `${favoriteGenres.length} / 5 selected`
+    },
+    {
+      id: 'collector',
+      name: 'Collector',
+      description: 'Build a watchlist of 10+ titles',
+      icon: 'library_books',
+      isUnlocked: watchlist.length >= 10,
+      tier: watchlist.length >= 10 ? 'Unlocked' : 'Locked',
+      requirement: 'Add 10 or more titles to your watchlist',
+      progress: `${watchlist.length} / 10 titles`
+    },
+    {
+      id: 'speed_demon',
+      name: 'Speed Demon',
+      description: 'Answer 3 quiz questions under 3s',
+      icon: 'bolt',
+      isUnlocked: localStorage.getItem('cineverse_badge_speed_demon') === 'true',
+      tier: localStorage.getItem('cineverse_badge_speed_demon') === 'true' ? 'Unlocked' : 'Locked',
+      requirement: 'Answer 3 quiz questions under 3 seconds each in one run',
+      progress: localStorage.getItem('cineverse_badge_speed_demon') === 'true' ? 'Completed' : 'Locked'
+    }
+  ];
+
   return (
     <div className="bg-level-0 min-h-screen pb-stack-lg page-transition">
       <main className="w-full pb-stack-lg pt-16">
@@ -189,6 +252,74 @@ export default function Profile() {
               </div>
               <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Watchlist size</span>
               <span className="font-headline-md text-headline-md text-on-surface">{watchlist.length}</span>
+            </div>
+          </section>
+
+          {/* Achievements & Badges Shelf */}
+          <section className="glass-panel rounded-3xl p-stack-lg flex flex-col gap-6 text-left border border-white/5 relative overflow-hidden">
+            {/* Background ambient glow */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-container/10 rounded-full blur-[100px]"></div>
+            
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <span className="material-symbols-outlined text-primary-container text-[24px]">military_tech</span>
+              <div>
+                <h2 className="font-headline-md text-headline-md text-on-surface">Achievements & Badges</h2>
+                <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mt-0.5">Showcase your cinematic journey milestones</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-2">
+              {badges.map((badge) => {
+                const tierColors = {
+                  Bronze: 'from-amber-700 to-amber-900 border-amber-600/35 shadow-[0_0_15px_rgba(180,83,9,0.3)] text-amber-300',
+                  Silver: 'from-slate-400 to-slate-600 border-slate-400/35 shadow-[0_0_15px_rgba(148,163,184,0.3)] text-slate-200',
+                  Gold: 'from-yellow-500 to-amber-600 border-yellow-500/35 shadow-[0_0_15px_rgba(234,179,8,0.4)] text-yellow-100',
+                  Platinum: 'from-teal-400 to-cyan-600 border-teal-400/35 shadow-[0_0_15px_rgba(20,184,166,0.4)] text-teal-100',
+                  Unlocked: 'from-primary-container to-red-800 border-primary-container/35 shadow-[0_0_15px_rgba(229,9,20,0.3)] text-red-200',
+                  Locked: 'from-white/5 to-white/5 border-white/5 text-secondary opacity-35'
+                };
+
+                const cardClass = badge.isUnlocked 
+                  ? `bg-gradient-to-br ${tierColors[badge.tier || 'Unlocked']}`
+                  : `glass-panel ${tierColors['Locked']}`;
+
+                return (
+                  <div 
+                    key={badge.id}
+                    className={`relative rounded-2xl p-4 border text-center flex flex-col items-center justify-between min-h-[140px] group transition-all duration-300 hover:scale-105 ${cardClass}`}
+                  >
+                    {/* Badge Icon */}
+                    <div className="w-12 h-12 rounded-full bg-black/25 flex items-center justify-center relative">
+                      {!badge.isUnlocked && (
+                        <span className="material-symbols-outlined text-[14px] text-secondary absolute top-0.5 right-0.5">lock</span>
+                      )}
+                      <span className={`material-symbols-outlined text-[28px] ${badge.isUnlocked ? 'filled-icon' : ''}`}>
+                        {badge.icon}
+                      </span>
+                    </div>
+
+                    {/* Badge Info */}
+                    <div className="mt-2 w-full">
+                      <h4 className="text-xs font-black truncate">{badge.name}</h4>
+                      {badge.isUnlocked && badge.tier !== 'Unlocked' && (
+                        <span className="text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 bg-black/35 rounded-full mt-0.5 inline-block">
+                          {badge.tier}
+                        </span>
+                      )}
+                      <p className="text-[9px] text-secondary/90 leading-tight mt-1 line-clamp-2 md:group-hover:hidden transition-all">
+                        {badge.description}
+                      </p>
+                      
+                      {/* Hover / tooltip requirements */}
+                      <div className="hidden md:group-hover:block text-[8px] text-white/95 leading-normal mt-1 transition-all">
+                        <div className="font-bold border-t border-white/10 pt-1">Goal:</div>
+                        <div>{badge.requirement}</div>
+                        <div className="font-bold mt-1 font-mono">{badge.progress}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 

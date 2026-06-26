@@ -21,6 +21,7 @@ app.use('/api/watchlist', require('./routes/watchlistRoutes'));
 app.use('/api/lists', require('./routes/listRoutes'));
 app.use('/api/trivia', require('./routes/triviaRoutes'));
 app.use('/api/watched', require('./routes/watchedRoutes'));
+app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 // Basic route
 app.get('/', (req, res) => {

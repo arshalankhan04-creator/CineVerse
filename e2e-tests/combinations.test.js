@@ -11,7 +11,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo1',
           email: 'combo1@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       expect(registerRes.statusCode).toEqual(201);
       const token = registerRes.body.token;
@@ -43,7 +43,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo2',
           email: 'combo2@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       expect(registerRes.statusCode).toEqual(201);
       const token = registerRes.body.token;
@@ -92,7 +92,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo3',
           email: 'combo3@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       expect(registerRes.statusCode).toEqual(201);
       const token = registerRes.body.token;
@@ -123,7 +123,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo4',
           email: 'combo4@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       const token = registerRes.body.token;
 
@@ -171,7 +171,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo5',
           email: 'combo5@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       const token = registerRes.body.token;
 
@@ -210,7 +210,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'combo6',
           email: 'combo6@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       const token = registerRes.body.token;
 
@@ -256,7 +256,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'journeyuser',
           email: 'journey@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       expect(registerRes.statusCode).toBe(201);
       const token = registerRes.body.token;
@@ -266,7 +266,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .post('/api/auth/login')
         .send({
           email: 'journey@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       expect(loginRes.statusCode).toBe(200);
 
@@ -307,9 +307,9 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
     it('Leaderboard Climb: multiple users, various scores, correct sorting/populate', async () => {
       // 1. Register 3 users
       const users = [
-        { username: 'climber1', email: 'climber1@example.com', password: 'password123', score: 200 },
-        { username: 'climber2', email: 'climber2@example.com', password: 'password123', score: 350 },
-        { username: 'climber3', email: 'climber3@example.com', password: 'password123', score: 100 }
+        { username: 'climber1', email: 'climber1@example.com', password: 'Password123!', score: 200 },
+        { username: 'climber2', email: 'climber2@example.com', password: 'Password123!', score: 350 },
+        { username: 'climber3', email: 'climber3@example.com', password: 'Password123!', score: 100 }
       ];
 
       for (const u of users) {
@@ -349,7 +349,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'dashboarduser',
           email: 'dash@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       const token = registerRes.body.token;
 
@@ -384,12 +384,12 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
     it('Account Isolation: multiple users, concurrent updates, scoping and no data leaks', async () => {
       // 1. Register two different users
       const regUser1 = await request(app).post('/api/auth/register').send({
-        username: 'isolated1', email: 'iso1@example.com', password: 'password123'
+        username: 'isolated1', email: 'iso1@example.com', password: 'Password123!'
       });
       const token1 = regUser1.body.token;
 
       const regUser2 = await request(app).post('/api/auth/register').send({
-        username: 'isolated2', email: 'iso2@example.com', password: 'password123'
+        username: 'isolated2', email: 'iso2@example.com', password: 'Password123!'
       });
       const token2 = regUser2.body.token;
 
@@ -443,7 +443,7 @@ describe('Cross-Feature Combinations & Real-World Scenarios (Tier 3 & Tier 4)', 
         .send({
           username: 'flowuser',
           email: 'flow@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
       const token = registerRes.body.token;
 

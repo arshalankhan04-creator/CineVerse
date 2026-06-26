@@ -21,7 +21,8 @@ console.log(`Running: ${npmCmd} ${args.join(' ')} inside Cwd: ${backendDir}`);
 const jestProcess = spawn(npmCmd, args, {
   cwd: backendDir,
   stdio: 'inherit',
-  env: { ...process.env, FORCE_COLOR: 'true' }
+  env: { ...process.env, FORCE_COLOR: 'true' },
+  shell: true
 });
 
 jestProcess.on('close', (code) => {

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
@@ -15,6 +16,7 @@ import Compare from './pages/Compare';
 import Quiz from './pages/Quiz';
 import Recommend from './pages/Recommend';
 import Lists from './pages/Lists';
+import SharedList from './pages/SharedList';
 import Calendar from './pages/Calendar';
 import Stats from './pages/Stats';
 
@@ -26,6 +28,9 @@ export default function App() {
 
       {/* Sticky Navigation */}
       <Navbar />
+
+      {/* Authentication Modal */}
+      <AuthModal />
 
       {/* Main Pages Container */}
       <div className="flex-grow">
@@ -42,6 +47,7 @@ export default function App() {
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/recommend" element={<Recommend />} />
           <Route path="/lists" element={<Lists />} />
+          <Route path="/lists/shared/:listId" element={<SharedList />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/profile/stats" element={<Stats />} />
           <Route path="*" element={<NotFound />} />

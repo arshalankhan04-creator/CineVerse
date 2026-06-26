@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -141,7 +142,7 @@ export default function CollectionModal({ isOpen, onClose, media }) {
     setShowCreateForm(false);
   };
 
-  return (
+  return createPortal(
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in text-left"
       onClick={onClose}
@@ -263,6 +264,7 @@ export default function CollectionModal({ isOpen, onClose, media }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

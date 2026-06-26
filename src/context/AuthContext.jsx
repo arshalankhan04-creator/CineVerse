@@ -226,39 +226,23 @@ export const AuthProvider = ({ children }) => {
     const mediaType = movie.media_type || movie.mediaType || (movie.first_air_date || movie.name ? 'tv' : 'movie');
 
     if (!user) {
-      // Local Storage Toggle
-      const list = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
-      const isAlreadyIn = list.some(item => item.id === movieId);
-      let updated;
-      if (isAlreadyIn) {
-        updated = list.filter(item => item.id !== movieId);
-        showToast('Removed from Watchlist ✗', 'info');
-      } else {
-        updated = [...list, { 
-          id: movieId, 
-          title: movie.title, 
-          name: movie.name, 
-          poster_path: posterPath, 
-          vote_average: ratingValue, 
-          release_date: movie.release_date, 
-          first_air_date: movie.first_air_date 
-        }];
-        showToast('Added to Watchlist ✓', 'success');
-      }
-      localStorage.setItem('cineverse_watchlist', JSON.stringify(updated));
-      setWatchlist(updated);
-      window.dispatchEvent(new Event('watchlist_updated'));
+      setAuthModalOpen(true);
+      showToast('Please sign in to manage your watchlist', 'info');
       return;
     }
 
-    // Database Toggle
+    // Database Toggle - Optimistic UI
     const isAlreadyInDb = watchlist.some(item => item.tmdbId === movieId);
+    const previousWatchlist = [...watchlist];
+
     try {
       if (isAlreadyInDb) {
-        await api.removeFromWatchlist(movieId);
+        // Optimistically remove from UI
         setWatchlist(prev => prev.filter(item => item.tmdbId !== movieId));
         showToast('Removed from Watchlist ✗', 'info');
+        await api.removeFromWatchlist(movieId);
       } else {
+        // Optimistically add to UI
         const newItem = {
           tmdbId: movieId,
           mediaType,
@@ -266,12 +250,14 @@ export const AuthProvider = ({ children }) => {
           posterPath,
           rating: ratingValue || 0
         };
-        await api.addToWatchlist(newItem);
         setWatchlist(prev => [...prev, newItem]);
         showToast('Added to Watchlist ✓', 'success');
+        await api.addToWatchlist(newItem);
       }
       window.dispatchEvent(new Event('watchlist_updated'));
     } catch (err) {
+      // Revert UI State if failed
+      setWatchlist(previousWatchlist);
       showToast(err.message || 'Failed to update watchlist', 'error');
     }
   };

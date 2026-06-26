@@ -77,6 +77,10 @@ export const getTVShowReviews = (id) => fetchFromTMDB(`/tv/${id}/reviews`);
 export const getUpcomingMovies = () => fetchFromTMDB('/movie/upcoming');
 export const getUpcomingTVShows = () => fetchFromTMDB('/tv/on_the_air');
 
+// Watch Providers
+export const getMovieWatchProviders = (id) => fetchFromTMDB(`/movie/${id}/watch/providers`);
+export const getTVWatchProviders = (id) => fetchFromTMDB(`/tv/${id}/watch/providers`);
+
 export const getMoviePosterUrl = (path) => 
   path ? `https://image.tmdb.org/t/p/w500${path}` : 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=500&auto=format&fit=crop';
 

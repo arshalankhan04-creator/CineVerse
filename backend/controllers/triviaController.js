@@ -5,6 +5,9 @@ const TriviaScore = require('../models/TriviaScore');
 // @access  Private
 exports.submitScore = async (req, res) => {
   try {
+    if (req.body.score === undefined || req.body.score === null) {
+      return res.status(400).json({ error: 'Score is required' });
+    }
     req.body.user = req.user.id;
     const score = await TriviaScore.create(req.body);
     res.status(201).json({

@@ -134,10 +134,10 @@ export const api = {
     return res.data;
   },
 
-  createList: async (name, description, items = []) => {
+  createList: async (name, description, isPublic = false, items = []) => {
     const res = await request('/lists', {
       method: 'POST',
-      body: JSON.stringify({ name, description, items }),
+      body: JSON.stringify({ name, description, isPublic, items }),
     });
     return res.data;
   },
@@ -168,6 +168,41 @@ export const api = {
 
   getLeaderboard: async () => {
     const res = await request('/trivia/leaderboard');
+    return res.data;
+  },
+
+  // Reviews
+  getReviews: async (mediaType, tmdbId) => {
+    const res = await request(`/reviews/${mediaType}/${tmdbId}`);
+    return res; // returns { success: true, count, averageRating, data: [...] }
+  },
+
+  submitReview: async (tmdbId, mediaType, rating, reviewText) => {
+    const res = await request('/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ tmdbId, mediaType, rating, reviewText }),
+    });
+    return res.data;
+  },
+
+  deleteReview: async (reviewId) => {
+    const res = await request(`/reviews/${reviewId}`, {
+      method: 'DELETE',
+    });
+    return res;
+  },
+
+  // Public Lists and List Updates
+  getPublicList: async (listId) => {
+    const res = await request(`/lists/public/${listId}`);
+    return res.data;
+  },
+
+  updateListDetails: async (listId, details) => {
+    const res = await request(`/lists/${listId}`, {
+      method: 'PUT',
+      body: JSON.stringify(details),
+    });
     return res.data;
   },
 };

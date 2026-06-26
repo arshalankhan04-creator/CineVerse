@@ -1,7 +1,7 @@
 export default function SkeletonLoader({ type = 'card-grid', count = 4 }) {
   if (type === 'hero') {
     return (
-      <div className="w-full h-[716px] md:h-[870px] bg-surface-container animate-pulse flex items-end">
+      <div className="w-full h-screen min-h-[550px] bg-surface-container animate-pulse flex items-end">
         <div className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop pb-[80px] md:pb-[120px] flex gap-gutter">
           <div className="w-[300px] aspect-[2/3] bg-surface-container-high rounded-lg hidden md:block shrink-0"></div>
           <div className="flex-1 flex flex-col gap-4">

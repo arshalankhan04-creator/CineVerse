@@ -69,9 +69,9 @@ export default function Explore() {
       try {
         setLoading(true);
         setError(null);
- 
         let response;
-        if (debouncedQuery.trim() !== '') {
+ 
+        if (debouncedQuery.trim().length >= 2) {
           response = exploreType === 'movie'
             ? await searchMovies(debouncedQuery, page)
             : await searchTVShows(debouncedQuery, page);
@@ -223,7 +223,7 @@ export default function Explore() {
           >
             All
           </button>
-          {genres.slice(0, 12).map((genre) => (
+          {genres.map((genre) => (
             <button 
               key={genre.id}
               onClick={() => handleGenreClick(genre.id)}

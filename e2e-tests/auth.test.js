@@ -5,7 +5,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
   const registerData = {
     username: 'authuser',
     email: 'auth@example.com',
-    password: 'password123'
+    password: 'Password123!'
   };
 
   // --- F1: User Registration ---
@@ -28,7 +28,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'defaultfields',
           email: 'defaults@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(201);
@@ -43,7 +43,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'tokenuser',
           email: 'token@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(201);
@@ -57,7 +57,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'anotheruser',
           email: 'another@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(201);
@@ -70,7 +70,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'formatuser',
           email: 'format@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(201);
@@ -91,7 +91,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'differentname',
           email: registerData.email,
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(400);
@@ -106,7 +106,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: registerData.username,
           email: 'different@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(400);
@@ -119,20 +119,20 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: 'bademail',
           email: 'bademailformat',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(400);
       expect(res.body.error).toBeDefined();
     });
 
-    it('F1-T2-4: should fail to register with a password less than 6 characters long', async () => {
+    it('F1-T2-4: should fail to register with a password less than 8 characters long', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({
           username: 'shortpass',
           email: 'shortpass@example.com',
-          password: '12345'
+          password: 'Pass12!'
         });
 
       expect(res.statusCode).toEqual(400);
@@ -145,7 +145,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .send({
           username: '',
           email: 'missing@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(400);
@@ -216,7 +216,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .post('/api/auth/login')
         .send({
           email: 'notfound@example.com',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(401);
@@ -228,7 +228,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
       const res = await request(app)
         .post('/api/auth/login')
         .send({
-          password: 'password123'
+          password: 'Password123!'
         });
 
       expect(res.statusCode).toEqual(400);
@@ -260,7 +260,7 @@ describe('Auth & Profile E2E Tests (F1, F2, F3)', () => {
         .post('/api/auth/login')
         .send({
           email: 'invalidemail',
-          password: 'password123'
+          password: 'Password123!'
         });
 
       // The controller attempts User.findOne({ email }), which will return null and yield 401

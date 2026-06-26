@@ -21,6 +21,10 @@ export default function Home() {
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const navigate = useNavigate();
 
+  // Touch Swiping State
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -66,15 +70,37 @@ export default function Home() {
   }, [trending]);
 
   const handlePrevHero = (e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     const maxIndex = Math.min(5, trending.length);
     setActiveHeroIndex((prev) => (prev === 0 ? maxIndex - 1 : prev - 1));
   };
 
   const handleNextHero = (e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     const maxIndex = Math.min(5, trending.length);
     setActiveHeroIndex((prev) => (prev + 1) % maxIndex);
+  };
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    
+    if (isLeftSwipe) {
+      handleNextHero();
+    } else if (isRightSwipe) {
+      handlePrevHero();
+    }
   };
 
   if (error) {
@@ -95,7 +121,12 @@ export default function Home() {
         <>
           {/* Rotating Hero Banner */}
           {trending.length > 0 && (
-            <header className="relative w-full h-[716px] md:h-[850px] overflow-hidden flex items-end">
+            <header 
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              className="relative w-full h-[55vh] md:h-screen min-h-[380px] md:min-h-[550px] overflow-hidden flex items-end pt-20"
+            >
               {trending.slice(0, 5).map((movie, idx) => {
                 const heroGenres = movie.genre_ids
                   ? movie.genre_ids.map(id => genresMap[id]).filter(Boolean).slice(0, 2).join(' / ')
@@ -124,7 +155,7 @@ export default function Home() {
                     {/* Content */}
                     <div className="relative z-20 w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop pb-[60px] md:pb-[80px]">
                       <div className="max-w-2xl flex flex-col gap-stack-md">
-                        <h1 className="font-display-lg text-[40px] md:text-display-lg font-extrabold text-on-background leading-tight drop-shadow-md">
+                        <h1 className="font-display-lg text-3xl md:text-display-lg font-extrabold text-on-background leading-tight drop-shadow-md">
                           {movie.title || movie.name}
                         </h1>
                         
@@ -162,30 +193,32 @@ export default function Home() {
               {/* Prev / Next controls */}
               <button 
                 onClick={handlePrevHero}
-                className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shadow-2xl border border-white/10"
+                className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel hidden md:flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shadow-2xl border border-white/10"
                 aria-label="Previous Hero"
               >
                 <span className="material-symbols-outlined text-[24px] md:text-[28px] select-none">chevron_left</span>
               </button>
               <button 
                 onClick={handleNextHero}
-                className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shadow-2xl border border-white/10"
+                className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel hidden md:flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shadow-2xl border border-white/10"
                 aria-label="Next Hero"
               >
                 <span className="material-symbols-outlined text-[24px] md:text-[28px] select-none">chevron_right</span>
               </button>
 
               {/* Slider Dots Indicator */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-1">
                 {trending.slice(0, 5).map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveHeroIndex(idx)}
-                    className={`h-2.5 rounded-full transition-all duration-300 ${
-                      idx === activeHeroIndex ? 'w-8 bg-primary-container' : 'w-2.5 bg-white/40 hover:bg-white/70'
-                    }`}
+                    className="p-2 cursor-pointer focus:outline-none"
                     aria-label={`Go to slide ${idx + 1}`}
-                  ></button>
+                  >
+                    <div className={`h-2 rounded-full transition-all duration-300 ${
+                      idx === activeHeroIndex ? 'w-8 bg-primary-container' : 'w-2 bg-white/40'
+                    }`} />
+                  </button>
                 ))}
               </div>
             </header>
@@ -199,7 +232,7 @@ export default function Home() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Trending Now
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {trending.map((movie, index) => (
                   <div key={movie.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={movie} showRating={false} index={index} />
@@ -213,7 +246,7 @@ export default function Home() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Popular Movies
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {popular.map((movie, index) => (
                   <div key={movie.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={movie} showRating={false} index={index} />
@@ -227,7 +260,7 @@ export default function Home() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Top Rated
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {topRated.map((movie, index) => (
                   <div key={movie.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={movie} showRating={false} index={index} />

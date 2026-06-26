@@ -27,3 +27,6 @@ npm-debug.log*
 # Archives
 index.zip
 *.zip
+
+# Agent orchestration files
+.agents/

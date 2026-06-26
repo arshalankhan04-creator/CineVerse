@@ -5,7 +5,7 @@ describe('Watchlist E2E Tests (F4)', () => {
   const userData = {
     username: 'watchlistuser',
     email: 'watchlist@example.com',
-    password: 'password123'
+    password: 'Password123!'
   };
   let token;
 

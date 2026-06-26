@@ -92,3 +92,52 @@ exports.deleteList = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// @desc    Get public custom list by ID
+// @route   GET /api/lists/public/:id
+// @access  Public
+exports.getPublicList = async (req, res) => {
+  try {
+    const list = await CustomList.findOne({ _id: req.params.id, isPublic: true })
+      .populate('user', 'username profileTheme');
+      
+    if (!list) {
+      return res.status(404).json({ error: 'Public collection not found' });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: list
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// @desc    Update list details (name, description, isPublic)
+// @route   PUT /api/lists/:id
+// @access  Private
+exports.updateListDetails = async (req, res) => {
+  try {
+    const list = await CustomList.findOne({ _id: req.params.id, user: req.user.id });
+
+    if (!list) {
+      return res.status(404).json({ error: 'Collection not found' });
+    }
+
+    const { name, description, isPublic } = req.body;
+
+    if (name !== undefined) list.name = name.trim();
+    if (description !== undefined) list.description = description.trim();
+    if (isPublic !== undefined) list.isPublic = isPublic;
+
+    await list.save();
+
+    res.status(200).json({
+      success: true,
+      data: list
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};

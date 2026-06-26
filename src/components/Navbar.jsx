@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import AuthModal from './AuthModal';
 
 const THEMES = [
   { id: 'default', name: 'Cinema Crimson', class: '', color: '#e50914' },
@@ -14,14 +13,51 @@ const THEMES = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const location = useLocation();
 
   const { user, setAuthModalOpen, logoutUser, updateProfileTheme } = useAuth();
-  const [activeTheme, setActiveTheme] = useState('default');
+  const [activeTheme, setActiveTheme] = useState(() => {
+    return localStorage.getItem('cineverse_theme') || 'default';
+  });
+
+  const applyTheme = (themeId) => {
+    THEMES.forEach(t => {
+      if (t.class) document.documentElement.classList.remove(t.class);
+    });
+    const theme = THEMES.find(t => t.id === themeId);
+    if (theme && theme.class) {
+      document.documentElement.classList.add(theme.class);
+    }
+  };
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  // Close theme dropdown when clicking outside
+  useEffect(() => {
+    if (!themeDropdownOpen) return;
+    const handleOutsideClick = () => {
+      setThemeDropdownOpen(false);
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [themeDropdownOpen]);
 
   useEffect(() => {
     if (user && user.profileTheme) {
-      setActiveTheme(user.profileTheme);
+      setTimeout(() => {
+        setActiveTheme(user.profileTheme);
+      }, 0);
       applyTheme(user.profileTheme);
     }
   }, [user]);
@@ -36,30 +72,18 @@ export default function Navbar() {
     };
     window.addEventListener('scroll', handleScroll);
 
-    // Initialize Theme
-    const savedTheme = localStorage.getItem('cineverse_theme') || 'default';
-    setActiveTheme(savedTheme);
-    applyTheme(savedTheme);
+    applyTheme(activeTheme);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
-
-  const applyTheme = (themeId) => {
-    THEMES.forEach(t => {
-      if (t.class) document.documentElement.classList.remove(t.class);
-    });
-    const theme = THEMES.find(t => t.id === themeId);
-    if (theme && theme.class) {
-      document.documentElement.classList.add(theme.class);
-    }
-  };
+  }, [activeTheme]);
 
   const handleThemeChange = (themeId) => {
     setActiveTheme(themeId);
     applyTheme(themeId);
     localStorage.setItem('cineverse_theme', themeId);
+    setThemeDropdownOpen(false);
     if (user) {
       updateProfileTheme(themeId);
     }
@@ -206,13 +230,18 @@ export default function Navbar() {
         {/* Theme Switcher */}
         <div className="relative group/theme py-1">
           <button 
-            className="text-secondary hover:text-primary-container transition-colors p-1 flex items-center"
+            onClick={(e) => { e.stopPropagation(); setThemeDropdownOpen(!themeDropdownOpen); }}
+            className="text-secondary hover:text-primary-container transition-colors p-1 flex items-center cursor-pointer"
             aria-label="Theme Switcher"
           >
             <span className="material-symbols-outlined text-[24px]">palette</span>
           </button>
           
-          <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-[#131313]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 opacity-0 scale-95 pointer-events-none group-hover/theme:opacity-100 group-hover/theme:scale-100 group-hover/theme:pointer-events-auto transition-all duration-200 z-50 flex flex-col gap-1 before:content-[''] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2">
+          <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl bg-[#131313]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 transition-all duration-200 z-50 flex flex-col gap-1 before:content-[''] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2 ${
+            themeDropdownOpen 
+              ? 'opacity-100 scale-100 pointer-events-auto' 
+              : 'opacity-0 scale-95 pointer-events-none md:group-hover/theme:opacity-100 md:group-hover/theme:scale-100 md:group-hover/theme:pointer-events-auto'
+          }`}>
             <div className="text-[10px] font-bold text-secondary uppercase px-3 py-1 tracking-wider">Select Theme</div>
             {THEMES.map(theme => (
               <button
@@ -400,8 +429,6 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Render Authentication Modal Overlay */}
-      <AuthModal />
     </nav>
   );
 }

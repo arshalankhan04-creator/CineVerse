@@ -5,12 +5,12 @@ describe('Custom Collections E2E Tests (F5)', () => {
   const userA = {
     username: 'collectionuserA',
     email: 'collectionA@example.com',
-    password: 'password123'
+    password: 'Password123!'
   };
   const userB = {
     username: 'collectionuserB',
     email: 'collectionB@example.com',
-    password: 'password123'
+    password: 'Password123!'
   };
   let tokenA;
   let tokenB;

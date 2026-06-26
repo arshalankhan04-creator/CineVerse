@@ -9,7 +9,7 @@ describe('Auth API', () => {
       .send({
         username: 'testuser',
         email: 'test@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     expect(res.statusCode).toEqual(201);
@@ -22,7 +22,7 @@ describe('Auth API', () => {
     await User.create({
       username: 'testuser1',
       email: 'test@example.com',
-      password: 'password123'
+      password: 'Password123!'
     });
 
     const res = await request(app)
@@ -30,7 +30,7 @@ describe('Auth API', () => {
       .send({
         username: 'testuser2',
         email: 'test@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     expect(res.statusCode).toEqual(400);
@@ -43,14 +43,14 @@ describe('Auth API', () => {
       .send({
         username: 'loginuser',
         email: 'login@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     const res = await request(app)
       .post('/api/auth/login')
       .send({
         email: 'login@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     expect(res.statusCode).toEqual(200);
@@ -63,7 +63,7 @@ describe('Auth API', () => {
       .send({
         username: 'meuser',
         email: 'me@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     const token = regRes.body.token;
@@ -82,7 +82,7 @@ describe('Auth API', () => {
       .send({
         username: 'meuser2',
         email: 'me2@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     const token = regRes.body.token;
@@ -105,7 +105,7 @@ describe('Auth API', () => {
       .send({
         username: 'themeuser',
         email: 'theme@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
 
     const token = regRes.body.token;

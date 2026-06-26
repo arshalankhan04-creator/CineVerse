@@ -10,7 +10,7 @@ describe('Trivia API', () => {
       .send({
         username: 'triviauser',
         email: 'trivia@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
     
     token = res.body.token;

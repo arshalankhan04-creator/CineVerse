@@ -18,6 +18,7 @@ export default function Lists() {
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   const [listName, setListName] = useState('');
   const [listDesc, setListDesc] = useState('');
+  const [listIsPublic, setListIsPublic] = useState(false);
 
   const loadLists = async () => {
     if (!user) return;
@@ -51,6 +52,7 @@ export default function Lists() {
     setModalMode('create');
     setListName('');
     setListDesc('');
+    setListIsPublic(false);
     setIsModalOpen(true);
   };
 
@@ -58,6 +60,7 @@ export default function Lists() {
     setModalMode('edit');
     setListName(list.name);
     setListDesc(list.description);
+    setListIsPublic(list.isPublic || false);
     setIsModalOpen(true);
   };
 
@@ -67,15 +70,16 @@ export default function Lists() {
 
     try {
       if (modalMode === 'create') {
-        const created = await api.createList(listName.trim(), listDesc.trim() || 'Custom collection');
+        const created = await api.createList(listName.trim(), listDesc.trim() || 'Custom collection', listIsPublic);
         setLists(prev => [...prev, created]);
         showToast(`Created collection "${listName}"`, 'success');
       } else {
-        // Edit collection (Wait! Does backend support PUT /lists/:listId? Yes, we can update details or do a quick patch. But wait, in backend_architecture_plan.md, did we define PUT /lists/:listId or just delete/create? Let's check:
-        // 'PUT /:listId/items: Add or remove items from a specific list.'
-        // Wait, did we implement updating name/description in backend? If not, we can just delete and recreate, or see what endpoints auth or routes/listRoutes has.
-        // Let's implement name/description update or fallback. Wait, let's see what is inside routes/listRoutes.js.)
-        showToast('Updating collections is synced automatically.', 'success');
+        await api.updateListDetails(selectedList._id, {
+          name: listName.trim(),
+          description: listDesc.trim() || 'Custom collection',
+          isPublic: listIsPublic
+        });
+        showToast(`Updated collection "${listName}"`, 'success');
       }
       setIsModalOpen(false);
       loadLists();
@@ -95,6 +99,18 @@ export default function Lists() {
         showToast(err.message || 'Failed to delete collection', 'error');
       }
     }
+  };
+
+  const handleShareList = (list) => {
+    const shareUrl = `${window.location.origin}/lists/shared/${list._id}`;
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        showToast('Share link copied to clipboard!', 'success');
+      })
+      .catch((err) => {
+        showToast('Failed to copy link', 'error');
+        console.error(err);
+      });
   };
 
   const handleRemoveItem = async (listId, tmdbId, itemTitle) => {
@@ -189,16 +205,42 @@ export default function Lists() {
                 <p className="text-body-md text-secondary mt-1 max-w-2xl leading-relaxed">
                   {selectedList.description}
                 </p>
-                <span className="text-xs font-bold text-secondary bg-white/5 border border-white/10 px-3 py-1 rounded-full mt-3 inline-block">
-                  {selectedList.items?.length || 0} {selectedList.items?.length === 1 ? 'Title' : 'Titles'}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span className="text-xs font-bold text-secondary bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+                    {selectedList.items?.length || 0} {selectedList.items?.length === 1 ? 'Title' : 'Titles'}
+                  </span>
+                  <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border ${
+                    selectedList.isPublic 
+                      ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30' 
+                      : 'bg-white/5 text-secondary border-white/10'
+                  }`}>
+                    <span className="material-symbols-outlined text-[12px]">{selectedList.isPublic ? 'public' : 'lock'}</span>
+                    {selectedList.isPublic ? 'Public' : 'Private'}
+                  </span>
+                </div>
               </div>
 
-              {/* Edit / Delete Buttons */}
-              <div className="flex gap-2 self-start md:self-center shrink-0">
+              {/* Action Buttons: Share, Edit, Delete */}
+              <div className="flex gap-2.5 self-start md:self-center shrink-0">
+                {selectedList.isPublic && (
+                  <button
+                    onClick={() => handleShareList(selectedList)}
+                    className="glass-panel text-primary hover:bg-white/5 p-2.5 rounded-full flex items-center justify-center transition-all cursor-pointer border border-white/10"
+                    title="Copy public share link"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">share</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleOpenEdit(selectedList)}
+                  className="glass-panel text-on-background hover:bg-white/5 p-2.5 rounded-full flex items-center justify-center transition-all cursor-pointer border border-white/10"
+                  title="Edit collection details"
+                >
+                  <span className="material-symbols-outlined text-[20px]">edit</span>
+                </button>
                 <button
                   onClick={() => handleDeleteCollection(selectedList._id, selectedList.name)}
-                  className="glass-panel text-primary-container hover:bg-primary-container/10 p-2.5 rounded-full flex items-center justify-center transition-colors cursor-pointer border border-primary-container/20"
+                  className="glass-panel text-primary-container hover:bg-primary-container/10 p-2.5 rounded-full flex items-center justify-center transition-all cursor-pointer border border-primary-container/20"
                   title="Delete collection"
                 >
                   <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -298,7 +340,12 @@ export default function Lists() {
                       )}
 
                       <div className="relative z-10 flex flex-col gap-2">
-                        <span className="material-symbols-outlined text-primary-container text-[28px] drop-shadow-md">folder_open</span>
+                        <div className="flex items-center justify-between">
+                          <span className="material-symbols-outlined text-primary-container text-[28px] drop-shadow-md">folder_open</span>
+                          <span className="material-symbols-outlined text-secondary/40 text-[18px]" title={list.isPublic ? 'Public collection' : 'Private collection'}>
+                            {list.isPublic ? 'public' : 'lock'}
+                          </span>
+                        </div>
                         <h3 className="text-body-lg font-bold text-on-background truncate group-hover:text-primary-container transition-colors mt-2" title={list.name}>
                           {list.name}
                         </h3>
@@ -366,6 +413,26 @@ export default function Lists() {
                   className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-3 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors resize-none"
                   maxLength={120}
                 />
+              </div>
+
+              <div className="flex items-center gap-3 bg-surface-container/50 border border-white/5 p-3 rounded-xl cursor-pointer select-none" onClick={() => setListIsPublic(!listIsPublic)}>
+                <input
+                  type="checkbox"
+                  checked={listIsPublic}
+                  onChange={(e) => setListIsPublic(e.target.checked)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded border-white/10 text-primary-container bg-surface-container focus:ring-primary-container accent-primary-container cursor-pointer"
+                  id="is-public-toggle"
+                />
+                <div className="flex flex-col text-left">
+                  <label htmlFor="is-public-toggle" className="text-xs font-bold text-on-background cursor-pointer flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px] text-secondary">public</span>
+                    Make Collection Public
+                  </label>
+                  <span className="text-[10px] text-secondary">
+                    Anyone with the link will be able to view this list.
+                  </span>
+                </div>
               </div>
 
               <div className="flex gap-2 justify-end mt-2">

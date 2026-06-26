@@ -95,7 +95,7 @@ export default function TVShows() {
         <>
           {/* Rotating Hero Banner */}
           {trending.length > 0 && (
-            <header className="relative w-full h-[716px] md:h-[850px] overflow-hidden flex items-end">
+            <header className="relative w-full h-screen min-h-[550px] overflow-hidden flex items-end">
               {trending.slice(0, 5).map((show, idx) => {
                 const heroGenres = show.genre_ids
                   ? show.genre_ids.map(id => genresMap[id]).filter(Boolean).slice(0, 2).join(' / ')
@@ -197,7 +197,7 @@ export default function TVShows() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Trending TV Shows
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {trending.map((show, index) => (
                   <div key={show.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={show} showRating={false} index={index} />
@@ -211,7 +211,7 @@ export default function TVShows() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Popular TV Shows
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {popular.map((show, index) => (
                   <div key={show.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={show} showRating={false} index={index} />
@@ -225,7 +225,7 @@ export default function TVShows() {
               <h2 className="font-headline-md text-headline-md text-on-background px-1 border-l-4 border-primary-container pl-3 select-none">
                 Top Rated TV Shows
               </h2>
-              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+              <div className="flex overflow-x-auto gap-stack-md pt-4 pb-4 snap-x snap-mandatory scrollbar-hide px-1">
                 {topRated.map((show, index) => (
                   <div key={show.id} className="flex-none w-[140px] md:w-[200px] snap-start">
                     <MovieCard movie={show} showRating={false} index={index} />

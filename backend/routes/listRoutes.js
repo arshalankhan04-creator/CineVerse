@@ -1,10 +1,21 @@
 const express = require('express');
-const { getLists, createList, updateListItems, deleteList } = require('../controllers/listController');
+const { 
+  getLists, 
+  createList, 
+  updateListItems, 
+  deleteList,
+  getPublicList,
+  updateListDetails
+} = require('../controllers/listController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.use(protect); // Protect all list routes
+// Public routes (auth bypassed)
+router.get('/public/:id', getPublicList);
+
+// Protected routes
+router.use(protect);
 
 router.route('/')
   .get(getLists)
@@ -14,6 +25,7 @@ router.route('/:id/items')
   .put(updateListItems);
 
 router.route('/:id')
+  .put(updateListDetails)
   .delete(deleteList);
 
 module.exports = router;

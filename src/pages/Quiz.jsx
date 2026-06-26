@@ -22,6 +22,11 @@ export default function Quiz() {
   const [isAnswered, setIsAnswered] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
+  
+  // Difficulty & Timer state
+  const [difficulty, setDifficulty] = useState('medium');
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [timerActive, setTimerActive] = useState(false);
 
   // Leaderboard state
   const [leaderboard, setLeaderboard] = useState([]);
@@ -39,10 +44,29 @@ export default function Quiz() {
     }
   };
 
+  // Timer Effect
+  useEffect(() => {
+    let timer;
+    if (isPlaying && timerActive && !isAnswered && timeLeft > 0) {
+      timer = setTimeout(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && !isAnswered && isPlaying) {
+      // Time run out!
+      setTimerActive(false);
+      setIsAnswered(true);
+      setSelectedAnswer('TIMEOUT');
+      showToast('Time ran out! ⌛', 'info');
+    }
+    return () => clearTimeout(timer);
+  }, [isPlaying, timerActive, isAnswered, timeLeft]);
+
   useEffect(() => {
     // Load highscore
     const savedHighScore = localStorage.getItem('cineverse_quiz_highscore') || '0';
     setHighScore(parseInt(savedHighScore, 10));
+    const savedDifficulty = localStorage.getItem('cineverse_quiz_difficulty') || 'medium';
+    setDifficulty(savedDifficulty);
     fetchLeaderboard();
 
     async function loadTrendingData() {
@@ -63,6 +87,9 @@ export default function Quiz() {
   }, []);
 
   const generateQuiz = () => {
+    const timerLimits = { easy: 20, medium: 15, hard: 10 };
+    const selectedDifficulty = localStorage.getItem('cineverse_quiz_difficulty') || difficulty;
+    
     if (movies.length < 5) {
       showToast('Not enough movies to generate quiz.', 'error');
       return;
@@ -78,12 +105,27 @@ export default function Quiz() {
       // Attempt up to 20 times to generate a question, falling back to simpler types to avoid loops
       while (!question && attempts < 20) {
         attempts++;
-        const type = attempts > 10 ? (Math.random() > 0.5 ? 2 : 3) : Math.floor(Math.random() * 4);
+        const maxType = selectedDifficulty === 'hard' ? 5 : 4;
+        const type = attempts > 10 ? (Math.random() > 0.5 ? 2 : 3) : Math.floor(Math.random() * maxType);
         
         if (type === 0) {
           // Compare Ratings
           const movieA = movies[Math.floor(Math.random() * movies.length)];
-          const candidates = movies.filter(m => m.id !== movieA.id && m.vote_average !== movieA.vote_average);
+          
+          let candidates = [];
+          if (selectedDifficulty === 'easy') {
+            candidates = movies.filter(m => m.id !== movieA.id && Math.abs(m.vote_average - movieA.vote_average) >= 1.0);
+          } else if (selectedDifficulty === 'medium') {
+            candidates = movies.filter(m => m.id !== movieA.id && Math.abs(m.vote_average - movieA.vote_average) >= 0.4 && Math.abs(m.vote_average - movieA.vote_average) < 1.0);
+          } else {
+            // hard
+            candidates = movies.filter(m => m.id !== movieA.id && Math.abs(m.vote_average - movieA.vote_average) < 0.4 && m.vote_average !== movieA.vote_average);
+          }
+
+          if (candidates.length === 0) {
+            candidates = movies.filter(m => m.id !== movieA.id && m.vote_average !== movieA.vote_average);
+          }
+
           if (candidates.length > 0) {
             const movieB = candidates[Math.floor(Math.random() * candidates.length)];
             const isACorrect = movieA.vote_average > movieB.vote_average;
@@ -106,12 +148,39 @@ export default function Quiz() {
           const yearA = dateA.getFullYear();
           
           if (!isNaN(yearA)) {
-            const candidates = movies.filter(m => {
-              if (m.id === movieA.id) return false;
-              const dateB = new Date(m.release_date);
-              const yearB = dateB.getFullYear();
-              return !isNaN(yearB) && yearB !== yearA;
-            });
+            let candidates = [];
+            if (selectedDifficulty === 'easy') {
+              candidates = movies.filter(m => {
+                if (m.id === movieA.id) return false;
+                const dateB = new Date(m.release_date);
+                const yearB = dateB.getFullYear();
+                return !isNaN(yearB) && Math.abs(yearB - yearA) >= 8;
+              });
+            } else if (selectedDifficulty === 'medium') {
+              candidates = movies.filter(m => {
+                if (m.id === movieA.id) return false;
+                const dateB = new Date(m.release_date);
+                const yearB = dateB.getFullYear();
+                return !isNaN(yearB) && Math.abs(yearB - yearA) >= 2 && Math.abs(yearB - yearA) < 8;
+              });
+            } else {
+              // hard
+              candidates = movies.filter(m => {
+                if (m.id === movieA.id) return false;
+                const dateB = new Date(m.release_date);
+                const yearB = dateB.getFullYear();
+                return !isNaN(yearB) && Math.abs(yearB - yearA) < 2 && yearB !== yearA;
+              });
+            }
+
+            if (candidates.length === 0) {
+              candidates = movies.filter(m => {
+                if (m.id === movieA.id) return false;
+                const dateB = new Date(m.release_date);
+                const yearB = dateB.getFullYear();
+                return !isNaN(yearB) && yearB !== yearA;
+              });
+            }
             
             if (candidates.length > 0) {
               const movieB = candidates[Math.floor(Math.random() * candidates.length)];
@@ -152,16 +221,20 @@ export default function Quiz() {
 
             const correctChoice = shuffledChoices.find(c => c.movie.id === targetMovie.id);
 
+            let cropLength = 250;
+            if (selectedDifficulty === 'medium') cropLength = 130;
+            else if (selectedDifficulty === 'hard') cropLength = 70;
+
             question = {
               type: 2,
-              text: `Identify the movie from this description:\n"${targetMovie.overview.slice(0, 160)}..."`,
+              text: `Identify the movie from this description:\n"${targetMovie.overview.slice(0, cropLength)}..."`,
               choices: shuffledChoices,
               correctId: correctChoice.id,
               explanation: `This describes "${targetMovie.title}".`
             };
           }
         }
-        else {
+        else if (type === 3) {
           // Guess the Year
           const targetMovie = movies[Math.floor(Math.random() * movies.length)];
           const correctYear = new Date(targetMovie.release_date).getFullYear();
@@ -171,7 +244,15 @@ export default function Quiz() {
             let yearAttempts = 0;
             while (years.size < 4 && yearAttempts < 50) {
               yearAttempts++;
-              const shift = Math.floor(Math.random() * 9) - 4; // -4 to +4 years
+              let shift = 0;
+              if (selectedDifficulty === 'easy') {
+                shift = (Math.floor(Math.random() * 2) === 0 ? 1 : -1) * (Math.floor(Math.random() * 6) + 5); // ±5 to ±10 years
+              } else if (selectedDifficulty === 'medium') {
+                shift = (Math.floor(Math.random() * 2) === 0 ? 1 : -1) * (Math.floor(Math.random() * 3) + 2); // ±2 to ±4 years
+              } else {
+                shift = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1 year
+                if (shift === 0) shift = Math.random() > 0.5 ? 2 : -2;
+              }
               const year = correctYear + shift;
               if (!isNaN(year)) {
                 years.add(year);
@@ -197,6 +278,25 @@ export default function Quiz() {
                 explanation: `"${targetMovie.title}" was released in ${correctYear}.`
               };
             }
+          }
+        }
+        else {
+          // Compare Popularity (Hard only)
+          const movieA = movies[Math.floor(Math.random() * movies.length)];
+          const candidates = movies.filter(m => m.id !== movieA.id && m.popularity !== movieA.popularity);
+          if (candidates.length > 0) {
+            const movieB = candidates[Math.floor(Math.random() * candidates.length)];
+            const isACorrect = movieA.popularity > movieB.popularity;
+            question = {
+              type: 4,
+              text: `Which movie is more popular right now according to TMDB?`,
+              choices: [
+                { id: 'A', text: movieA.title, movie: movieA },
+                { id: 'B', text: movieB.title, movie: movieB }
+              ],
+              correctId: isACorrect ? 'A' : 'B',
+              explanation: `"${movieA.title}" has a popularity score of ${movieA.popularity.toFixed(0)} while "${movieB.title}" has a score of ${movieB.popularity.toFixed(0)}.`
+            };
           }
         }
       }
@@ -229,11 +329,19 @@ export default function Quiz() {
     setSelectedAnswer(null);
     setIsAnswered(false);
     setQuizFinished(false);
+    
+    // Set timer & difficulty
+    setTimeLeft(timerLimits[selectedDifficulty]);
+    setTimerActive(true);
     setIsPlaying(true);
+    
+    // Clear speed run tracker
+    localStorage.removeItem('cineverse_speed_demon');
   };
 
   const handleSelectAnswer = (choiceId) => {
     if (isAnswered) return;
+    setTimerActive(false);
     setSelectedAnswer(choiceId);
     setIsAnswered(true);
 
@@ -241,33 +349,66 @@ export default function Quiz() {
     const isCorrect = choiceId === question.correctId;
     if (isCorrect) {
       setScore(prev => prev + 1);
-      showToast('Correct! +1 Point', 'success');
+      showToast('Correct! +1 Point ✓', 'success');
+      
+      // Speed run check for achievements (answered in <= 3 seconds)
+      const maxTime = difficulty === 'easy' ? 20 : difficulty === 'medium' ? 15 : 10;
+      const answerSpeed = maxTime - timeLeft;
+      if (answerSpeed <= 3) {
+        const speedRunsCount = parseInt(localStorage.getItem('cineverse_speed_demon') || '0', 10);
+        localStorage.setItem('cineverse_speed_demon', (speedRunsCount + 1).toString());
+      }
     } else {
-      showToast('Incorrect answer!', 'info');
+      showToast('Incorrect answer! ✗', 'info');
     }
   };
 
   const handleNextQuestion = async () => {
+    const timerLimits = { easy: 20, medium: 15, hard: 10 };
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setIsAnswered(false);
+      setTimeLeft(timerLimits[difficulty]);
+      setTimerActive(true);
     } else {
       // Finish Quiz
       setIsPlaying(false);
+      setTimerActive(false);
       setQuizFinished(true);
+
+      const difficultyLabels = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+      const categoryLabel = `Movie Trivia (${difficultyLabels[difficulty]})`;
       
+      // Multipliers
+      const multipliers = { easy: 1.0, medium: 1.5, hard: 2.0 };
+      const finalMultiplierScore = Math.round(score * multipliers[difficulty]);
+
       // Update highscore
-      if (score > highScore) {
-        localStorage.setItem('cineverse_quiz_highscore', score.toString());
-        setHighScore(score);
+      const savedHighScore = localStorage.getItem(`cineverse_quiz_highscore_${difficulty}`) || '0';
+      if (score > parseInt(savedHighScore, 10)) {
+        localStorage.setItem(`cineverse_quiz_highscore_${difficulty}`, score.toString());
+        if (difficulty === 'medium' || difficulty === 'hard') {
+          localStorage.setItem('cineverse_quiz_highscore', score.toString());
+          setHighScore(score);
+        }
         showToast('New High Score! 🎉', 'success');
+      }
+
+      // Check for Speed Demon achievement
+      const finalSpeedRuns = parseInt(localStorage.getItem('cineverse_speed_demon') || '0', 10);
+      if (finalSpeedRuns >= 3) {
+        localStorage.setItem('cineverse_badge_speed_demon', 'true');
+      }
+
+      if (score === 10 && (difficulty === 'medium' || difficulty === 'hard')) {
+        localStorage.setItem('cineverse_badge_trivia_master', 'true');
       }
 
       // Submit score to database if logged in
       if (user) {
         try {
-          await api.submitScore(score, 'Movie Trivia');
+          await api.submitScore(finalMultiplierScore, categoryLabel);
           fetchLeaderboard();
         } catch (err) {
           console.error('Failed to submit score to server:', err.message);
@@ -310,22 +451,50 @@ export default function Quiz() {
             </p>
 
             {/* Stats Row */}
-            <div className="flex gap-10 mt-6 mb-6">
+            <div className="flex gap-10 mt-6 mb-2">
               <div className="text-center">
                 <p className="text-label-sm text-secondary font-bold uppercase tracking-wider">High Score</p>
                 <p className="text-display-lg-mobile font-black text-primary-container font-mono">{highScore} / 10</p>
               </div>
             </div>
 
+            {/* Difficulty Selector */}
+            <div className="flex flex-col gap-3 my-6 w-full max-w-sm">
+              <p className="text-[10px] uppercase font-bold text-secondary tracking-widest text-center">Select Difficulty</p>
+              <div className="grid grid-cols-3 gap-2">
+                {['easy', 'medium', 'hard'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      setDifficulty(d);
+                      localStorage.setItem('cineverse_quiz_difficulty', d);
+                    }}
+                    className={`py-2 px-4 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                      difficulty === d
+                        ? 'bg-primary-container text-white border-primary-container shadow-[0_0_15px_rgba(229,9,20,0.35)]'
+                        : 'bg-white/5 border-white/5 text-secondary hover:border-white/10 hover:text-white'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-secondary mt-1 text-center italic">
+                {difficulty === 'easy' && 'Easy Mode: 20s timer, x1.0 multiplier'}
+                {difficulty === 'medium' && 'Medium Mode: 15s timer, x1.5 multiplier'}
+                {difficulty === 'hard' && 'Hard Mode: 10s timer, x2.0 multiplier'}
+              </p>
+            </div>
+
             <button
               onClick={generateQuiz}
-              className="bg-primary-container text-white text-label-md font-bold px-10 py-4 rounded-full shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_30px_rgba(229,9,20,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
+              className="bg-primary-container text-white text-label-md font-bold px-10 py-4 rounded-full shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_30px_rgba(229,9,20,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer mb-4"
             >
               Start Playing
             </button>
 
             {/* Leaderboard Table */}
-            <div className="w-full mt-10 text-left border-t border-white/10 pt-8">
+            <div className="w-full mt-8 text-left border-t border-white/10 pt-6">
               <h3 className="text-body-md font-bold text-on-background mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-tertiary text-[20px] filled-icon">leaderboard</span>
                 Global Leaderboard
@@ -368,8 +537,11 @@ export default function Quiz() {
                                 <span className="text-secondary/70">{idx + 1}</span>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 font-semibold text-on-background">{entry.user?.username || entry.username || 'Unknown'}</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-primary-container">{entry.score} / 10</td>
+                            <td className="px-4 py-2.5">
+                              <div className="font-semibold text-on-background">{entry.user?.username || entry.username || 'Unknown'}</div>
+                              <div className="text-[9px] text-secondary mt-0.5 font-bold tracking-wide uppercase">{entry.category || 'Movie Trivia'}</div>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-bold text-primary-container font-mono">{entry.score} pts</td>
                             <td className="px-4 py-2.5 text-right text-secondary/50">{date}</td>
                           </tr>
                         );
@@ -388,11 +560,39 @@ export default function Quiz() {
             {/* Header info / progress */}
             <div className="flex items-center justify-between border-b border-white/5 pb-4">
               <div>
-                <p className="text-label-sm text-secondary uppercase font-bold tracking-wider">CineVerse Trivia</p>
+                <p className="text-label-sm text-secondary uppercase font-bold tracking-wider">CineVerse Trivia ({difficulty.toUpperCase()})</p>
                 <h2 className="text-headline-md font-extrabold text-on-background mt-1">
                   Question {currentIndex + 1} of {questions.length}
                 </h2>
               </div>
+              
+              {/* Countdown Timer SVG Ring */}
+              <div className="flex items-center gap-2 bg-white/5 border border-white/5 px-4 py-1.5 rounded-2xl shrink-0">
+                <div className="relative w-8 h-8">
+                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                    <circle cx="18" cy="18" r="16" fill="none" className="stroke-white/10" strokeWidth="3.2" />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      fill="none"
+                      className={`transition-all duration-1000 ease-linear ${
+                        timeLeft <= 3 ? 'stroke-red-500' : timeLeft <= 7 ? 'stroke-amber-400' : 'stroke-primary-container'
+                      }`}
+                      strokeWidth="3.2"
+                      strokeDasharray="100.5 100.5"
+                      strokeDashoffset={100.5 - (timeLeft / (difficulty === 'easy' ? 20 : difficulty === 'medium' ? 15 : 10)) * 100.5}
+                    />
+                  </svg>
+                  <div className={`absolute inset-0 flex items-center justify-center text-[10px] font-black font-mono ${
+                    timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-on-background'
+                  }`}>
+                    {timeLeft}
+                  </div>
+                </div>
+                <span className="text-[9px] uppercase font-bold text-secondary tracking-widest hidden sm:inline">Time Left</span>
+              </div>
+
               <div className="text-right">
                 <p className="text-label-sm text-secondary font-bold uppercase">Score</p>
                 <p className="text-headline-lg font-black font-mono text-primary-container">{score}</p>
@@ -521,14 +721,29 @@ export default function Quiz() {
             </h1>
             
             <p className="text-body-md text-secondary mt-1">
-              You scored <span className="font-bold text-on-background">{score}</span> out of <span className="font-bold text-on-background">10</span> questions.
+              You answered <span className="font-bold text-on-background">{score}</span> out of <span className="font-bold text-on-background">10</span> questions correctly.
             </p>
 
-            {/* Score Ring */}
-            <div className="relative w-36 h-36 flex items-center justify-center my-8 bg-surface-container rounded-full border border-white/5 shadow-inner">
-              <span className="text-display-lg font-black font-mono text-primary-container drop-shadow-md">
-                {score * 10}%
-              </span>
+            {/* Score Details Grid */}
+            <div className="flex gap-6 md:gap-8 my-8 items-center bg-white/5 border border-white/5 px-6 py-4 rounded-3xl">
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-bold text-secondary tracking-widest">Base Score</p>
+                <p className="text-display-lg-mobile md:text-headline-md font-black text-on-background font-mono mt-0.5">{score}/10</p>
+              </div>
+              <div className="w-[1px] h-8 bg-white/10"></div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-bold text-secondary tracking-widest">Multiplier</p>
+                <p className="text-display-lg-mobile md:text-headline-md font-black text-blue-400 font-mono mt-0.5">
+                  x{difficulty === 'easy' ? '1.0' : difficulty === 'medium' ? '1.5' : '2.0'}
+                </p>
+              </div>
+              <div className="w-[1px] h-8 bg-white/10"></div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-bold text-secondary tracking-widest">Final Points</p>
+                <p className="text-display-lg-mobile md:text-headline-md font-black text-primary-container font-mono mt-0.5 animate-pulse">
+                  {Math.round(score * (difficulty === 'easy' ? 1.0 : difficulty === 'medium' ? 1.5 : 2.0))} pts
+                </p>
+              </div>
             </div>
 
             {/* High score comparison */}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import { 
   getTVShowDetails, 
   getTVShowCredits, 
@@ -9,7 +11,8 @@ import {
   getMovieBackdropUrl,
   getTVShowRecommendations,
   getTVShowImages,
-  getTVShowReviews
+  getTVShowReviews,
+  getTVWatchProviders
 } from '../services/tmdb';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ErrorDisplay from '../components/ErrorDisplay';
@@ -20,7 +23,7 @@ import MovieCard from '../components/MovieCard';
 export default function TVDetail() {
   const { id } = useParams();
   const { showToast } = useToast();
-  const { watchedList, toggleWatched, watchlist, toggleWatchlist } = useAuth();
+  const { user, watchedList, toggleWatched, watchlist, toggleWatchlist, setAuthModalOpen } = useAuth();
   
   // Data states
   const [show, setShow] = useState(null);
@@ -30,11 +33,27 @@ export default function TVDetail() {
   const [recommendations, setRecommendations] = useState([]);
   const [stills, setStills] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [watchProviders, setWatchProviders] = useState(null);
+  const [selectedRegion, setSelectedRegion] = useState(() => localStorage.getItem('cineverse_region') || 'IN');
+
+  const REGIONS = [
+    { code: 'IN', name: 'India', flag: '🇮🇳' },
+    { code: 'US', name: 'United States', flag: '🇺🇸' },
+    { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+    { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+    { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+    { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+    { code: 'FR', name: 'France', flag: '🇫🇷' },
+  ];
   
-  // Custom reviews
-  const [userReviewName, setUserReviewName] = useState('');
-  const [userReviewContent, setUserReviewContent] = useState('');
-  const [customReviews, setCustomReviews] = useState([]);
+  // Backend reviews
+  const [backendReviews, setBackendReviews] = useState([]);
+  const [communityRating, setCommunityRating] = useState(0);
+  const [communityCount, setCommunityCount] = useState(0);
+  const [userRating, setUserRating] = useState(10);
+  const [userReviewText, setUserReviewText] = useState('');
+  const [userHasReviewed, setUserHasReviewed] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Modals & controls
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
@@ -59,17 +78,20 @@ export default function TVDetail() {
           videosRes, 
           recRes, 
           imagesRes, 
-          reviewsRes
+          reviewsRes,
+          watchProvidersRes
         ] = await Promise.all([
           getTVShowDetails(id),
           getTVShowCredits(id),
           getTVShowVideos(id),
           getTVShowRecommendations(id),
           getTVShowImages(id),
-          getTVShowReviews(id)
+          getTVShowReviews(id),
+          getTVWatchProviders(id).catch(() => ({}))
         ]);
 
         setShow(tvDetails);
+        setWatchProviders(watchProvidersRes?.results || {});
         setCast(creditsRes.cast?.slice(0, 6) || []);
 
         // Filter for key crew members (specifically creators/executive producers)
@@ -103,9 +125,17 @@ export default function TVDetail() {
         setStills(imagesRes.backdrops?.slice(0, 10) || []);
         setReviews(reviewsRes.results || []);
 
-        // Custom reviews
-        const localReviews = JSON.parse(localStorage.getItem(`cineverse_reviews_${id}`) || '[]');
-        setCustomReviews(localReviews);
+        // Fetch backend reviews
+        try {
+          const reviewsRes = await api.getReviews('tv', id);
+          if (reviewsRes.success) {
+            setBackendReviews(reviewsRes.data);
+            setCommunityRating(reviewsRes.averageRating);
+            setCommunityCount(reviewsRes.count);
+          }
+        } catch (err) {
+          console.error('Error fetching backend reviews:', err);
+        }
 
       } catch (err) {
         console.error('Error fetching TV details:', err);
@@ -132,25 +162,75 @@ export default function TVDetail() {
 
 
 
-  const handleAddReview = (e) => {
+  // Synchronize user review input fields if they have already reviewed this TV show
+  useEffect(() => {
+    if (user && backendReviews.length > 0) {
+      const userReview = backendReviews.find(r => (r.user?._id || r.user) === user.id);
+      if (userReview) {
+        setUserHasReviewed(true);
+        setUserRating(userReview.rating);
+        setUserReviewText(userReview.reviewText || '');
+      } else {
+        setUserHasReviewed(false);
+        setUserRating(10);
+        setUserReviewText('');
+      }
+    } else if (!user) {
+      setUserHasReviewed(false);
+      setUserRating(10);
+      setUserReviewText('');
+    }
+  }, [user, backendReviews]);
+
+  const handleAddReview = async (e) => {
     e.preventDefault();
-    if (!userReviewName.trim() || !userReviewContent.trim()) return;
+    if (!user) {
+      setAuthModalOpen(true);
+      showToast('Please sign in to write a review', 'info');
+      return;
+    }
+    try {
+      setIsSubmittingReview(true);
+      await api.submitReview(parseInt(id), 'tv', userRating, userReviewText.trim());
+      showToast(userHasReviewed ? 'Review updated successfully!' : 'Review posted successfully!', 'success');
+      
+      // Refresh reviews list
+      const res = await api.getReviews('tv', id);
+      if (res.success) {
+        setBackendReviews(res.data);
+        setCommunityRating(res.averageRating);
+        setCommunityCount(res.count);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to submit review', 'error');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
-    const newReview = {
-      id: Date.now().toString(),
-      author: userReviewName.trim(),
-      content: userReviewContent.trim(),
-      created_at: new Date().toISOString(),
-      custom: true
-    };
-
-    const updated = [newReview, ...customReviews];
-    setCustomReviews(updated);
-    localStorage.setItem(`cineverse_reviews_${id}`, JSON.stringify(updated));
-    
-    setUserReviewName('');
-    setUserReviewContent('');
-    showToast('Review posted successfully!', 'success');
+  const handleDeleteReview = async () => {
+    const userReview = backendReviews.find(r => (r.user?._id || r.user) === user?.id);
+    if (!userReview) return;
+    try {
+      setIsSubmittingReview(true);
+      await api.deleteReview(userReview._id);
+      showToast('Review deleted successfully', 'success');
+      setUserReviewText('');
+      setUserRating(10);
+      setUserHasReviewed(false);
+      
+      // Refresh reviews list
+      const res = await api.getReviews('tv', id);
+      if (res.success) {
+        setBackendReviews(res.data);
+        setCommunityRating(res.averageRating);
+        setCommunityCount(res.count);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to delete review', 'error');
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   if (loading) {
@@ -173,7 +253,7 @@ export default function TVDetail() {
       <main className="w-full relative">
         
         {/* Hero Section with Backdrop */}
-        <section className="relative w-full h-[65vh] md:h-[80vh] min-h-[500px] flex items-end">
+        <section className="relative w-full h-[45vh] md:h-[80vh] min-h-[300px] md:min-h-[500px] flex items-end pt-20">
           {/* Backdrop Image */}
           <div className="absolute inset-0 z-0">
             <div 
@@ -230,9 +310,16 @@ export default function TVDetail() {
                 </div>
 
                 {displayRating !== 'N/A' && (
-                  <div className="flex items-center gap-1 text-tertiary-fixed font-bold bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-tertiary-fixed/30">
+                  <div className="flex items-center gap-1 text-tertiary-fixed font-bold bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-tertiary-fixed/30" title="TMDB Rating">
                     <span className="material-symbols-outlined filled-icon text-[18px] text-tertiary">star</span>
                     {displayRating}
+                  </div>
+                )}
+
+                {communityCount > 0 && (
+                  <div className="flex items-center gap-1.5 text-primary-container font-bold bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-primary-container/30" title="CineVerse Community Rating">
+                    <span className="material-symbols-outlined filled-icon text-[18px] text-primary-container">favorite</span>
+                    <span>{communityRating}/10 ({communityCount})</span>
                   </div>
                 )}
               </div>
@@ -308,6 +395,117 @@ export default function TVDetail() {
               <p className="text-[17px] leading-relaxed text-secondary mt-3">
                 {show.overview || 'No description available for this TV show.'}
               </p>
+            </div>
+
+            {/* Watch Providers ("Where to Watch") Section */}
+            <div className="glass-panel rounded-xl p-stack-lg flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <h2 className="text-headline-md font-headline-md text-on-background flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary-container">live_tv</span>
+                  Where to Watch
+                </h2>
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedRegion(val);
+                    localStorage.setItem('cineverse_region', val);
+                  }}
+                  className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-on-background font-bold focus:outline-none focus:border-primary-container cursor-pointer transition-colors"
+                >
+                  {REGIONS.map(r => (
+                    <option key={r.code} value={r.code} className="bg-level-2 text-on-background">
+                      {r.flag} {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Provider listings */}
+              {watchProviders && watchProviders[selectedRegion] && (watchProviders[selectedRegion].flatrate || watchProviders[selectedRegion].rent || watchProviders[selectedRegion].buy) ? (
+                <div className="flex flex-col gap-4 mt-2">
+                  {/* Stream (Flatrate) */}
+                  {watchProviders[selectedRegion].flatrate && (
+                    <div>
+                      <h3 className="text-xs text-secondary font-bold uppercase tracking-wider mb-2">Streaming</h3>
+                      <div className="flex flex-wrap gap-3">
+                        {watchProviders[selectedRegion].flatrate.map(p => (
+                          <div key={p.provider_id} className="group relative" title={p.provider_name}>
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${p.logo_path}`}
+                              alt={p.provider_name}
+                              className="w-10 h-10 rounded-xl border border-white/5 group-hover:scale-105 transition-transform shadow-md"
+                            />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-black/95 text-[9px] font-bold text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/5 z-20">
+                              {p.provider_name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rent */}
+                  {watchProviders[selectedRegion].rent && (
+                    <div>
+                      <h3 className="text-xs text-secondary font-bold uppercase tracking-wider mb-2">Rent</h3>
+                      <div className="flex flex-wrap gap-3">
+                        {watchProviders[selectedRegion].rent.map(p => (
+                          <div key={p.provider_id} className="group relative" title={p.provider_name}>
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${p.logo_path}`}
+                              alt={p.provider_name}
+                              className="w-10 h-10 rounded-xl border border-white/5 group-hover:scale-105 transition-transform shadow-md"
+                            />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-black/95 text-[9px] font-bold text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/5 z-20">
+                              {p.provider_name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Buy */}
+                  {watchProviders[selectedRegion].buy && (
+                    <div>
+                      <h3 className="text-xs text-secondary font-bold uppercase tracking-wider mb-2">Buy</h3>
+                      <div className="flex flex-wrap gap-3">
+                        {watchProviders[selectedRegion].buy.map(p => (
+                          <div key={p.provider_id} className="group relative" title={p.provider_name}>
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${p.logo_path}`}
+                              alt={p.provider_name}
+                              className="w-10 h-10 rounded-xl border border-white/5 group-hover:scale-105 transition-transform shadow-md"
+                            />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-black/95 text-[9px] font-bold text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/5 z-20">
+                              {p.provider_name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Powered by TMDB credit / link */}
+                  {watchProviders[selectedRegion].link && (
+                    <a
+                      href={watchProviders[selectedRegion].link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-secondary hover:text-primary-container text-right flex items-center justify-end gap-1.5 mt-2 transition-colors font-medium"
+                    >
+                      <span>More details on JustWatch</span>
+                      <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <span className="material-symbols-outlined text-secondary/35 text-[32px]">live_tv</span>
+                  <p className="text-xs text-secondary mt-2">Not available to stream, rent, or buy in this region.</p>
+                </div>
+              )}
             </div>
 
             {/* TV Show Production Facts */}
@@ -452,10 +650,10 @@ export default function TVDetail() {
                 <div 
                   key={idx}
                   onClick={() => setActiveStill(still.file_path)}
-                  className="min-w-[240px] md:min-w-[320px] aspect-video rounded-xl overflow-hidden shadow-md snap-start cursor-pointer hover:scale-102 hover:shadow-2xl border border-white/5 transition-all relative group shrink-0 bg-surface-container"
+                  className="min-w-[140px] md:min-w-[320px] aspect-video rounded-xl overflow-hidden shadow-md snap-start cursor-pointer hover:scale-102 hover:shadow-2xl border border-white/5 transition-all relative group shrink-0 bg-surface-container"
                 >
                   <img 
-                    src={`https://image.tmdb.org/t/p/w780${still.file_path}`} 
+                    src={`https://image.tmdb.org/t/p/w300${still.file_path}`} 
                     alt={`Still ${idx}`} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     loading="lazy"
@@ -481,7 +679,7 @@ export default function TVDetail() {
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {recommendations.map((rec, index) => (
-                <div key={rec.id} className="min-w-[160px] sm:min-w-[200px] snap-start flex-none">
+                <div key={rec.id} className="flex-none w-[130px] md:w-[200px] snap-start">
                   <MovieCard movie={rec} showRating={true} index={index} />
                 </div>
               ))}
@@ -499,67 +697,146 @@ export default function TVDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-start">
             
             {/* Custom Review Form */}
-            <form onSubmit={handleAddReview} className="glass-panel rounded-2xl p-6 flex flex-col gap-4 border border-white/5 text-left">
-              <h3 className="text-body-lg font-bold text-on-background">Write a Review</h3>
-              
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] uppercase font-bold text-secondary tracking-wider">Your Name</label>
-                <input 
-                  type="text" 
-                  placeholder="Alex Rivera"
-                  value={userReviewName}
-                  onChange={(e) => setUserReviewName(e.target.value)}
-                  className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors"
-                  required
-                />
-              </div>
+            {user ? (
+              <form onSubmit={handleAddReview} className="glass-panel rounded-2xl p-6 flex flex-col gap-4 border border-white/5 text-left">
+                <h3 className="text-body-lg font-bold text-on-background">
+                  {userHasReviewed ? 'Update Your Review' : 'Write a Review'}
+                </h3>
+                
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase font-bold text-secondary tracking-wider">Your Rating</label>
+                  <select 
+                    value={userRating}
+                    onChange={(e) => setUserRating(parseInt(e.target.value))}
+                    className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors cursor-pointer"
+                    required
+                  >
+                    <option value="10">⭐ 10 - Masterpiece</option>
+                    <option value="9">⭐ 9 - Excellent</option>
+                    <option value="8">⭐ 8 - Very Good</option>
+                    <option value="7">⭐ 7 - Good</option>
+                    <option value="6">⭐ 6 - Fine</option>
+                    <option value="5">⭐ 5 - Average</option>
+                    <option value="4">⭐ 4 - Bad</option>
+                    <option value="3">⭐ 3 - Very Bad</option>
+                    <option value="2">⭐ 2 - Terrible</option>
+                    <option value="1">⭐ 1 - Appalling</option>
+                  </select>
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] uppercase font-bold text-secondary tracking-wider">Your Thoughts</label>
-                <textarea 
-                  placeholder="Share your thoughts about this show..."
-                  value={userReviewContent}
-                  onChange={(e) => setUserReviewContent(e.target.value)}
-                  rows={4}
-                  className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors resize-none"
-                  required
-                />
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase font-bold text-secondary tracking-wider">Your Thoughts (Optional)</label>
+                  <textarea 
+                    placeholder="Share your thoughts about this show..."
+                    value={userReviewText}
+                    onChange={(e) => setUserReviewText(e.target.value)}
+                    rows={4}
+                    className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors resize-none"
+                  />
+                </div>
 
-              <button 
-                type="submit"
-                className="w-full py-3 bg-primary-container text-white text-xs font-bold rounded-xl hover:bg-primary-container/95 transition-all shadow-md active:scale-98 cursor-pointer text-center"
-              >
-                Post Review
-              </button>
-            </form>
+                <div className="flex gap-2 mt-2">
+                  <button 
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="flex-1 py-3 bg-primary-container text-white text-xs font-bold rounded-xl hover:bg-primary-container/95 transition-all shadow-md active:scale-98 cursor-pointer text-center disabled:opacity-50"
+                  >
+                    {isSubmittingReview ? 'Submitting...' : userHasReviewed ? 'Update Review' : 'Post Review'}
+                  </button>
+                  {userHasReviewed && (
+                    <button 
+                      type="button"
+                      onClick={handleDeleteReview}
+                      disabled={isSubmittingReview}
+                      className="px-4 py-3 bg-red-950/40 hover:bg-red-950/60 border border-red-500/30 text-red-200 text-xs font-bold rounded-xl transition-all active:scale-98 cursor-pointer text-center disabled:opacity-50"
+                      title="Delete Review"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4 border border-white/5 text-center items-center justify-center min-h-[250px]">
+                <span className="material-symbols-outlined text-[48px] text-primary-container">rate_review</span>
+                <h3 className="text-body-lg font-bold text-on-background mt-2">Share Your Rating</h3>
+                <p className="text-xs text-secondary leading-relaxed max-w-[240px]">
+                  Sign in to leave a community rating and review for this show.
+                </p>
+                <button 
+                  type="button"
+                  onClick={() => setAuthModalOpen(true)}
+                  className="mt-2 px-6 py-2.5 bg-primary-container text-white text-xs font-bold rounded-xl hover:bg-primary-container/95 transition-all shadow-md active:scale-98 cursor-pointer"
+                >
+                  Sign In / Register
+                </button>
+              </div>
+            )}
 
             {/* List of reviews */}
-            <div className="lg:col-span-2 flex flex-col gap-4 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
-              {[...customReviews, ...reviews].length === 0 ? (
+            <div className="lg:col-span-2 flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
+              {backendReviews.length === 0 && reviews.length === 0 ? (
                 <p className="text-secondary text-sm text-center py-12 bg-surface-container-low/20 rounded-2xl border border-white/5 border-dashed">
                   No reviews posted yet. Be the first to share your thoughts!
                 </p>
               ) : (
-                [...customReviews, ...reviews].map(r => (
-                  <div key={r.id} className="glass-panel rounded-2xl p-5 border border-white/5 flex flex-col gap-3">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[20px] text-primary-container">account_circle</span>
-                        <span className="text-sm font-bold text-on-background">{r.author || r.author_details?.username}</span>
-                        {r.custom && (
-                          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-primary-container/15 text-primary-container border border-primary-container/20">CineVerse Critic</span>
-                        )}
+                <>
+                  {/* Backend Community Reviews */}
+                  {backendReviews.map(r => (
+                    <div key={r._id} className="glass-panel rounded-2xl p-5 border border-white/5 flex flex-col gap-3 text-left">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`material-symbols-outlined text-[20px] ${
+                            r.user?.profileTheme && r.user.profileTheme !== 'default' 
+                              ? 'text-primary-container' 
+                              : 'text-secondary'
+                          }`}>
+                            account_circle
+                          </span>
+                          <span className="text-sm font-bold text-on-background">{r.user?.username || 'Anonymous'}</span>
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-primary-container/15 text-primary-container border border-primary-container/20">
+                            Community
+                          </span>
+                          <span className="ml-2 text-xs font-bold text-tertiary flex items-center gap-0.5 bg-tertiary/10 px-2 py-0.5 rounded-full border border-tertiary/20">
+                            ★ {r.rating}/10
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-secondary">
+                          {new Date(r.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-secondary">
-                        {new Date(r.created_at || r.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                      </span>
+                      <p className="text-xs leading-relaxed text-secondary whitespace-pre-line line-clamp-5 hover:line-clamp-none transition-all cursor-pointer animate-fade-in" title="Click to expand/collapse review text">
+                        {r.reviewText || <span className="italic text-secondary/60">Rated this show without comment.</span>}
+                      </p>
                     </div>
-                    <p className="text-xs leading-relaxed text-secondary whitespace-pre-line line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="Click to read full review">
-                      {r.content}
-                    </p>
-                  </div>
-                ))
+                  ))}
+
+                  {/* TMDB Critic Reviews */}
+                  {reviews.map(r => (
+                    <div key={r.id} className="glass-panel rounded-2xl p-5 border border-white/5 flex flex-col gap-3 opacity-90 text-left">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[20px] text-secondary">account_circle</span>
+                          <span className="text-sm font-bold text-on-background">{r.author || r.author_details?.username}</span>
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-white/5 text-secondary border border-white/10">
+                            TMDB Critic
+                          </span>
+                          {r.author_details?.rating && (
+                            <span className="ml-2 text-xs font-bold text-tertiary flex items-center gap-0.5 bg-tertiary/10 px-2 py-0.5 rounded-full border border-tertiary/20">
+                              ★ {r.author_details.rating}/10
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-secondary">
+                          {new Date(r.created_at || r.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-secondary whitespace-pre-line line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="Click to read full review">
+                        {r.content}
+                      </p>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
             
@@ -569,7 +846,7 @@ export default function TVDetail() {
       </main>
 
       {/* Trailer Modal Dialog */}
-      {isTrailerOpen && trailerKey && (
+      {isTrailerOpen && trailerKey && createPortal(
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-fade-in"
           onClick={() => setIsTrailerOpen(false)}
@@ -593,11 +870,12 @@ export default function TVDetail() {
               allowFullScreen
             ></iframe>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Zoom Still Lightbox Modal */}
-      {activeStill && (
+      {activeStill && createPortal(
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
           onClick={() => setActiveStill(null)}
@@ -611,11 +889,12 @@ export default function TVDetail() {
             </button>
             <img 
               src={`https://image.tmdb.org/t/p/original${activeStill}`} 
-              alt="Zoomed TV Still" 
+              alt="Zoomed TV Show Still" 
               className="w-full h-full object-contain rounded-lg border border-white/10 shadow-2xl"
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Custom Collection Modal */}

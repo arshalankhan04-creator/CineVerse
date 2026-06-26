@@ -13,7 +13,7 @@ describe('Watchlist API', () => {
       .send({
         username: 'watchlistuser',
         email: 'watchlist@example.com',
-        password: 'password123'
+        password: 'Password123!'
       });
     
     token = res.body.token;
