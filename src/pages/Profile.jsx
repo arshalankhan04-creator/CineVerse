@@ -1,54 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
   const { showToast } = useToast();
-  const [watchlistCount, setWatchlistCount] = useState(0);
+  const { user, watchlist, setAuthModalOpen } = useAuth();
   const [favoriteGenres, setFavoriteGenres] = useState(['Action', 'Sci-Fi', 'Thriller']);
-  
-  // Editable profile states
-  const [name, setName] = useState('Alex Rivera');
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState('Alex Rivera');
 
   const GENRES_KEY = 'cineverse_profile_genres';
-  const NAME_KEY = 'cineverse_profile_name';
-  const WATCHLIST_KEY = 'cineverse_watchlist';
-
   const availableGenres = [
     'Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 
     'Thriller', 'Romance', 'Fantasy', 'Mystery', 'Adventure'
   ];
 
   useEffect(() => {
-    // 1. Get Watchlist count
-    const watchlist = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-    setWatchlistCount(watchlist.length);
-
-    // 2. Get saved profile name
-    const storedName = localStorage.getItem(NAME_KEY);
-    if (storedName) {
-      setName(storedName);
-      setTempName(storedName);
-    } else {
-      localStorage.setItem(NAME_KEY, 'Alex Rivera');
-    }
-
-    // 3. Get saved favorite genres
+    // Get saved favorite genres from local storage
     const savedGenres = localStorage.getItem(GENRES_KEY);
     if (savedGenres) {
       setFavoriteGenres(JSON.parse(savedGenres));
     } else {
       localStorage.setItem(GENRES_KEY, JSON.stringify(['Action', 'Sci-Fi', 'Thriller']));
     }
-
-    // Sync watchlist count if changed elsewhere
-    const handleWatchlistChange = () => {
-      const updatedList = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-      setWatchlistCount(updatedList.length);
-    };
-    window.addEventListener('watchlist_updated', handleWatchlistChange);
-    return () => window.removeEventListener('watchlist_updated', handleWatchlistChange);
   }, []);
 
   const toggleGenre = (genre) => {
@@ -64,31 +36,42 @@ export default function Profile() {
     showToast(isAdding ? `Added ${genre} to favorites ✓` : `Removed ${genre} from favorites ✗`, 'info');
   };
 
-  const handleSaveName = (e) => {
-    e.preventDefault();
-    if (tempName.trim()) {
-      setName(tempName.trim());
-      localStorage.setItem(NAME_KEY, tempName.trim());
-      setIsEditingName(false);
-      showToast('Profile name updated ✓', 'success');
-      
-      // Dispatch custom event to notify Navbar avatar
-      window.dispatchEvent(new Event('profile_updated'));
-    }
-  };
-
-  const handleCancelName = () => {
-    setTempName(name);
-    setIsEditingName(false);
-  };
-
   // Compute initials for the avatar
-  const initials = name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'AR';
+  const initials = user ? user.username.slice(0, 2).toUpperCase() : 'AR';
+  
+  // Format joined date
+  const joinedDate = user && user.createdAt 
+    ? new Date(user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+    : 'June 2026';
+
+  // If user is logged out, show premium sign-in prompt placeholder
+  if (!user) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 page-transition text-left">
+        <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col items-center justify-center py-20 text-center">
+          <div className="glass-panel rounded-3xl p-12 max-w-2xl mx-auto border border-white/5 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary-container/10 rounded-full blur-[100px]"></div>
+            
+            <span className="material-symbols-outlined text-[72px] text-primary-container mb-6 drop-shadow-[0_0_20px_rgba(229,9,20,0.3)] animate-pulse">person</span>
+            
+            <h1 className="text-display-lg-mobile md:text-headline-lg font-black text-on-background tracking-tight mb-4">
+              Your CineVerse Profile
+            </h1>
+            <p className="text-body-lg text-secondary max-w-md mb-8 leading-relaxed">
+              Sign in to view your personalized dashboard, manage your favorite genres, track your watchlist stats, and customize your theme.
+            </p>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="bg-primary-container text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide hover:scale-105 active:scale-95 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">login</span>
+              Sign In / Register
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-level-0 min-h-screen pb-stack-lg page-transition">
@@ -110,60 +93,27 @@ export default function Profile() {
             {/* Initials Avatar (Dynamic) */}
             <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full border-4 border-primary-container shadow-[0_10px_30px_rgba(229,9,20,0.45)] flex items-center justify-center bg-primary-container text-[40px] md:text-[52px] font-extrabold text-white select-none shrink-0 group hover:scale-105 transition-transform duration-300">
               {initials}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full transition-opacity duration-300 cursor-pointer">
-                <span className="material-symbols-outlined text-white text-[28px]">photo_camera</span>
-              </div>
             </div>
 
             {/* Text Content */}
             <div className="flex flex-col gap-stack-sm md:mb-2 max-w-full">
-              {isEditingName ? (
-                <form onSubmit={handleSaveName} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={tempName}
-                    onChange={(e) => setTempName(e.target.value)}
-                    className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-4 py-2 text-headline-md font-bold text-on-surface focus:outline-none focus:border-primary-container"
-                    maxLength={20}
-                    autoFocus
-                  />
-                  <button type="submit" className="bg-primary-container text-white px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform cursor-pointer">Save</button>
-                  <button type="button" onClick={handleCancelName} className="text-secondary text-sm hover:text-white transition-colors cursor-pointer">Cancel</button>
-                </form>
-              ) : (
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                  <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight leading-none">
-                    {name}
-                  </h1>
-                  <button 
-                    onClick={() => setIsEditingName(true)}
-                    className="text-secondary hover:text-white cursor-pointer"
-                    aria-label="Edit Name"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">edit</span>
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center justify-center md:justify-start gap-3">
+                <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight leading-none">
+                  {user.username}
+                </h1>
+              </div>
               
-              <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                <span className="inline-flex items-center gap-1 bg-primary-container/10 text-primary-container border border-primary-container/30 px-3.5 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider backdrop-blur-sm">
+              <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-2 mt-2 text-xs">
+                <span className="inline-flex items-center gap-1 bg-primary-container/10 text-primary-container border border-primary-container/30 px-3.5 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider backdrop-blur-sm w-fit self-center md:self-auto">
                   <span className="material-symbols-outlined text-[14px] filled-icon">stars</span>
-                  Premium Member
+                  CineVerse Member
                 </span>
-                <span className="text-secondary font-body-md text-body-md ml-2 hidden md:inline">Joined 2021</span>
+                <span className="text-secondary font-body-md text-body-md ml-2">{user.email}</span>
+                <span className="text-secondary/65 ml-2 hidden md:inline">•</span>
+                <span className="text-secondary/65 ml-2">Joined {joinedDate}</span>
               </div>
             </div>
 
-            {/* Action Button Desktop */}
-            <div className="hidden md:flex ml-auto mb-2">
-              <button 
-                onClick={() => setIsEditingName(true)}
-                className="bg-surface-container-high hover:bg-surface-variant text-on-surface px-6 py-2.5 rounded-full font-label-md text-label-md flex items-center gap-2 transition-colors border border-outline-variant/30 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
-                Edit Profile Name
-              </button>
-            </div>
           </div>
         </section>
 
@@ -191,13 +141,13 @@ export default function Profile() {
               <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-3 border border-outline-variant/20 text-secondary">
                 <span className="material-symbols-outlined text-[20px]">bookmark</span>
               </div>
-              <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Watchlist</span>
-              <span className="font-headline-md text-headline-md text-on-surface">{watchlistCount}</span>
+              <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Watchlist size</span>
+              <span className="font-headline-md text-headline-md text-on-surface">{watchlist.length}</span>
             </div>
           </section>
 
           {/* Preferences and settings Bento Grid */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-gutter text-left">
             
             {/* Left: Preferences */}
             <div className="glass-panel rounded-xl p-stack-lg flex flex-col justify-between h-full">
@@ -293,7 +243,7 @@ export default function Profile() {
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="font-body-md text-body-md text-on-surface">Billing & Subscription</span>
-                        <span className="font-label-sm text-label-sm text-secondary">Premium Plan - Renews October 12</span>
+                        <span className="font-label-sm text-label-sm text-secondary">Manage billing and tier options</span>
                       </div>
                     </div>
                     <span className="material-symbols-outlined text-secondary group-hover:translate-x-1 transition-transform">chevron_right</span>

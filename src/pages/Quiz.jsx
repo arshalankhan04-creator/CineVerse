@@ -3,9 +3,12 @@ import { getTrendingMovies, getMoviePosterUrl } from '../services/tmdb';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ErrorDisplay from '../components/ErrorDisplay';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 export default function Quiz() {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,17 +23,33 @@ export default function Quiz() {
   const [highScore, setHighScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
+  // Leaderboard state
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  const fetchLeaderboard = async () => {
+    try {
+      setLoadingLeaderboard(true);
+      const data = await api.getLeaderboard();
+      setLeaderboard(data);
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err.message);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  };
+
   useEffect(() => {
     // Load highscore
     const savedHighScore = localStorage.getItem('cineverse_quiz_highscore') || '0';
     setHighScore(parseInt(savedHighScore, 10));
+    fetchLeaderboard();
 
     async function loadTrendingData() {
       try {
         setLoading(true);
         setError(null);
         const res = await getTrendingMovies();
-        // Keep only movies with post path and overview
         const validMovies = (res.results || []).filter(m => m.poster_path && m.overview && m.release_date && m.vote_average);
         setMovies(validMovies);
       } catch (err) {
@@ -187,7 +206,7 @@ export default function Quiz() {
     }
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -202,6 +221,16 @@ export default function Quiz() {
         localStorage.setItem('cineverse_quiz_highscore', score.toString());
         setHighScore(score);
         showToast('New High Score! 🎉', 'success');
+      }
+
+      // Submit score to database if logged in
+      if (user) {
+        try {
+          await api.submitScore(score, 'Movie Trivia');
+          fetchLeaderboard();
+        } catch (err) {
+          console.error('Failed to submit score to server:', err.message);
+        }
       }
     }
   };
@@ -240,7 +269,7 @@ export default function Quiz() {
             </p>
 
             {/* Stats Row */}
-            <div className="flex gap-10 mt-8 mb-8">
+            <div className="flex gap-10 mt-6 mb-6">
               <div className="text-center">
                 <p className="text-label-sm text-secondary font-bold uppercase tracking-wider">High Score</p>
                 <p className="text-display-lg-mobile font-black text-primary-container font-mono">{highScore} / 10</p>
@@ -253,6 +282,62 @@ export default function Quiz() {
             >
               Start Playing
             </button>
+
+            {/* Leaderboard Table */}
+            <div className="w-full mt-10 text-left border-t border-white/10 pt-8">
+              <h3 className="text-body-md font-bold text-on-background mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-tertiary text-[20px] filled-icon">leaderboard</span>
+                Global Leaderboard
+              </h3>
+              
+              {loadingLeaderboard ? (
+                <div className="flex justify-center py-6">
+                  <div className="w-6 h-6 border-2 border-primary-container/20 border-t-primary-container rounded-full animate-spin"></div>
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <p className="text-xs text-secondary/60 text-center py-4">No scores posted yet. Be the first!</p>
+              ) : (
+                <div className="glass-panel rounded-2xl overflow-hidden border border-white/5 bg-black/10">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-white/5 text-secondary border-b border-white/5 font-bold uppercase tracking-wider text-[9px]">
+                        <th className="px-4 py-2.5 text-center w-16">Rank</th>
+                        <th className="px-4 py-2.5">Player</th>
+                        <th className="px-4 py-2.5 text-right w-24">Score</th>
+                        <th className="px-4 py-2.5 text-right w-24">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboard.slice(0, 5).map((entry, idx) => {
+                        const date = new Date(entry.playedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        const isFirst = idx === 0;
+                        const isSecond = idx === 1;
+                        const isThird = idx === 2;
+                        
+                        return (
+                          <tr key={entry._id || idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="px-4 py-2.5 text-center font-bold">
+                              {isFirst ? (
+                                <span className="text-[14px]">🥇</span>
+                              ) : isSecond ? (
+                                <span className="text-[14px]">🥈</span>
+                              ) : isThird ? (
+                                <span className="text-[14px]">🥉</span>
+                              ) : (
+                                <span className="text-secondary/70">{idx + 1}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 font-semibold text-on-background">{entry.username}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-primary-container">{entry.score} / 10</td>
+                            <td className="px-4 py-2.5 text-right text-secondary/50">{date}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getMoviePosterUrl } from '../services/tmdb';
-import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function MovieCard({ movie, showRating = true, index = -1 }) {
   const { id, title, name, poster_path, vote_average, release_date, first_air_date } = movie;
-  const { showToast } = useToast();
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const { watchlist, toggleWatchlist } = useAuth();
 
   const displayTitle = title || name || 'Unknown Title';
   const year = release_date 
@@ -19,31 +18,12 @@ export default function MovieCard({ movie, showRating = true, index = -1 }) {
   const isTVShow = !!first_air_date || (!!name && !title);
   const detailsUrl = isTVShow ? `/tv/${id}` : `/movie/${id}`;
 
-  useEffect(() => {
-    const checkWatchlist = () => {
-      const list = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
-      setIsInWatchlist(list.some(item => item.id === id));
-    };
-    checkWatchlist();
-    window.addEventListener('watchlist_updated', checkWatchlist);
-    return () => window.removeEventListener('watchlist_updated', checkWatchlist);
-  }, [id]);
+  const isInWatchlist = watchlist.some(item => item.tmdbId === id || item.id === id);
 
   const handleToggleWatchlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    const list = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
-    let updatedList;
-    if (isInWatchlist) {
-      updatedList = list.filter(item => item.id !== id);
-      showToast('Removed ✗', 'info');
-    } else {
-      updatedList = [...list, { id, title, name, poster_path, vote_average, release_date, first_air_date }];
-      showToast('Added to Watchlist ✓', 'success');
-    }
-    localStorage.setItem('cineverse_watchlist', JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('watchlist_updated'));
+    toggleWatchlist(movie);
   };
 
   return (

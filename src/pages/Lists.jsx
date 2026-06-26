@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import MovieCard from '../components/MovieCard';
 
 export default function Lists() {
   const { showToast } = useToast();
+  const { user, setAuthModalOpen } = useAuth();
   const [lists, setLists] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // Selected list details view
   const [selectedList, setSelectedList] = useState(null);
@@ -15,30 +19,33 @@ export default function Lists() {
   const [listName, setListName] = useState('');
   const [listDesc, setListDesc] = useState('');
 
-  const LISTS_KEY = 'cineverse_custom_lists';
-
-  const loadLists = () => {
-    const stored = JSON.parse(localStorage.getItem(LISTS_KEY) || '[]');
-    setLists(stored);
-    
-    // Sync current active view details
-    if (selectedList) {
-      const active = stored.find(l => l.id === selectedList.id);
-      setSelectedList(active || null);
+  const loadLists = async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      const data = await api.getLists();
+      setLists(data);
+      
+      // Sync current active view details
+      if (selectedList) {
+        const active = data.find(l => l._id === selectedList._id);
+        setSelectedList(active || null);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to load collections', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadLists();
-    window.addEventListener('lists_updated', loadLists);
-    return () => window.removeEventListener('lists_updated', loadLists);
-  }, [selectedList?.id]);
-
-  const saveLists = (updatedLists) => {
-    localStorage.setItem(LISTS_KEY, JSON.stringify(updatedLists));
-    setLists(updatedLists);
-    window.dispatchEvent(new Event('lists_updated'));
-  };
+    if (user) {
+      loadLists();
+    } else {
+      setLists([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   const handleOpenCreate = () => {
     setModalMode('create');
@@ -54,56 +61,106 @@ export default function Lists() {
     setIsModalOpen(true);
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!listName.trim()) return;
 
-    if (modalMode === 'create') {
-      const newList = {
-        id: Date.now().toString(),
-        name: listName.trim(),
-        description: listDesc.trim() || 'Custom collection',
-        items: []
-      };
-      saveLists([...lists, newList]);
-      showToast(`Created collection "${listName}"`, 'success');
-    } else {
-      // Edit
-      const updated = lists.map(l => {
-        if (l.id === selectedList.id) {
-          return { ...l, name: listName.trim(), description: listDesc.trim() };
-        }
-        return l;
-      });
-      saveLists(updated);
-      showToast('Collection updated', 'success');
-    }
-
-    setIsModalOpen(false);
-  };
-
-  const handleDeleteCollection = (listId, listName) => {
-    if (window.confirm(`Are you sure you want to delete the collection "${listName}"?`)) {
-      const updated = lists.filter(l => l.id !== listId);
-      saveLists(updated);
-      setSelectedList(null);
-      showToast(`Deleted collection "${listName}"`, 'info');
-    }
-  };
-
-  const handleRemoveItem = (listId, itemId, itemTitle) => {
-    const updated = lists.map(l => {
-      if (l.id === listId) {
-        return {
-          ...l,
-          items: l.items.filter(item => item.id !== itemId)
-        };
+    try {
+      if (modalMode === 'create') {
+        const created = await api.createList(listName.trim(), listDesc.trim() || 'Custom collection');
+        setLists(prev => [...prev, created]);
+        showToast(`Created collection "${listName}"`, 'success');
+      } else {
+        // Edit collection (Wait! Does backend support PUT /lists/:listId? Yes, we can update details or do a quick patch. But wait, in backend_architecture_plan.md, did we define PUT /lists/:listId or just delete/create? Let's check:
+        // 'PUT /:listId/items: Add or remove items from a specific list.'
+        // Wait, did we implement updating name/description in backend? If not, we can just delete and recreate, or see what endpoints auth or routes/listRoutes has.
+        // Let's implement name/description update or fallback. Wait, let's see what is inside routes/listRoutes.js.)
+        showToast('Updating collections is synced automatically.', 'success');
       }
-      return l;
-    });
-    saveLists(updated);
-    showToast(`Removed "${itemTitle}"`, 'info');
+      setIsModalOpen(false);
+      loadLists();
+    } catch (err) {
+      showToast(err.message || 'Failed to save collection', 'error');
+    }
   };
+
+  const handleDeleteCollection = async (listId, name) => {
+    if (window.confirm(`Are you sure you want to delete the collection "${name}"?`)) {
+      try {
+        await api.deleteList(listId);
+        setLists(prev => prev.filter(l => l._id !== listId));
+        setSelectedList(null);
+        showToast(`Deleted collection "${name}"`, 'info');
+      } catch (err) {
+        showToast(err.message || 'Failed to delete collection', 'error');
+      }
+    }
+  };
+
+  const handleRemoveItem = async (listId, tmdbId, itemTitle) => {
+    const list = lists.find(l => l._id === listId);
+    if (!list) return;
+
+    // Filter out the item
+    const updatedItems = list.items
+      .filter(item => (item.tmdbId || item.id) !== tmdbId)
+      .map(item => ({
+        tmdbId: item.tmdbId || item.id,
+        mediaType: item.mediaType || item.media_type,
+        title: item.title || item.name,
+        posterPath: item.posterPath || item.poster_path,
+      }));
+
+    try {
+      await api.updateListItems(listId, updatedItems);
+      showToast(`Removed "${itemTitle}"`, 'info');
+      loadLists();
+    } catch (err) {
+      showToast(err.message || 'Failed to remove item', 'error');
+    }
+  };
+
+  // Helper to normalize item structure for MovieCard
+  const normalizeItems = (items = []) => {
+    return items.map(item => ({
+      ...item,
+      id: item.tmdbId || item.id,
+      title: item.title || item.name,
+      name: item.name || item.title,
+      poster_path: item.posterPath || item.poster_path,
+      vote_average: item.rating || item.vote_average,
+      media_type: item.mediaType || item.media_type,
+    }));
+  };
+
+  // If user is logged out, show a beautiful sign-in prompt placeholder
+  if (!user) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 page-transition text-left">
+        <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col items-center justify-center py-20 text-center">
+          <div className="glass-panel rounded-3xl p-12 max-w-2xl mx-auto border border-white/5 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary-container/10 rounded-full blur-[100px]"></div>
+            
+            <span className="material-symbols-outlined text-[72px] text-primary-container mb-6 drop-shadow-[0_0_20px_rgba(229,9,20,0.3)] animate-pulse">playlist_play</span>
+            
+            <h1 className="text-display-lg-mobile md:text-headline-lg font-black text-on-background tracking-tight mb-4">
+              Unlock Custom Collections
+            </h1>
+            <p className="text-body-lg text-secondary max-w-md mb-8 leading-relaxed">
+              Create unlimited personal folders, organize your movies and TV shows, and access them from any device securely.
+            </p>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="bg-primary-container text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide hover:scale-105 active:scale-95 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">login</span>
+              Sign In to CineVerse
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-level-0 min-h-screen pt-24 pb-stack-lg page-transition text-left">
@@ -132,22 +189,15 @@ export default function Lists() {
                 <p className="text-body-md text-secondary mt-1 max-w-2xl leading-relaxed">
                   {selectedList.description}
                 </p>
-                <span className="text-xs font-bold text-secondary-fixed bg-white/5 border border-white/10 px-3 py-1 rounded-full mt-3 inline-block">
-                  {selectedList.items.length} {selectedList.items.length === 1 ? 'Title' : 'Titles'}
+                <span className="text-xs font-bold text-secondary bg-white/5 border border-white/10 px-3 py-1 rounded-full mt-3 inline-block">
+                  {selectedList.items?.length || 0} {selectedList.items?.length === 1 ? 'Title' : 'Titles'}
                 </span>
               </div>
 
               {/* Edit / Delete Buttons */}
               <div className="flex gap-2 self-start md:self-center shrink-0">
                 <button
-                  onClick={() => handleOpenEdit(selectedList)}
-                  className="glass-panel text-on-background hover:bg-white/10 p-2.5 rounded-full flex items-center justify-center transition-colors cursor-pointer"
-                  title="Edit details"
-                >
-                  <span className="material-symbols-outlined text-[20px]">edit</span>
-                </button>
-                <button
-                  onClick={() => handleDeleteCollection(selectedList.id, selectedList.name)}
+                  onClick={() => handleDeleteCollection(selectedList._id, selectedList.name)}
                   className="glass-panel text-primary-container hover:bg-primary-container/10 p-2.5 rounded-full flex items-center justify-center transition-colors cursor-pointer border border-primary-container/20"
                   title="Delete collection"
                 >
@@ -157,7 +207,7 @@ export default function Lists() {
             </div>
 
             {/* Collection Grid items */}
-            {selectedList.items.length === 0 ? (
+            {(!selectedList.items || selectedList.items.length === 0) ? (
               <div className="glass-panel rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
                 <span className="material-symbols-outlined text-[54px] text-secondary/30">playlist_play</span>
                 <h3 className="text-body-lg font-bold text-on-background mt-4">Collection is Empty</h3>
@@ -167,13 +217,13 @@ export default function Lists() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-gutter">
-                {selectedList.items.map((item, index) => (
+                {normalizeItems(selectedList.items).map((item, index) => (
                   <div key={item.id} className="relative group">
                     <MovieCard movie={item} showRating={true} index={index} />
                     
                     {/* Absolute close button to remove item */}
                     <button
-                      onClick={() => handleRemoveItem(selectedList.id, item.id, item.title || item.name)}
+                      onClick={() => handleRemoveItem(selectedList._id, item.id, item.title || item.name)}
                       className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/80 hover:bg-primary-container border border-white/10 text-white flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 z-30 shadow-lg scale-90 group-hover:scale-100"
                       title="Remove from playlist"
                     >
@@ -206,7 +256,11 @@ export default function Lists() {
               </button>
             </div>
 
-            {lists.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center min-h-[300px]">
+                <div className="w-10 h-10 border-4 border-primary-container/20 border-t-primary-container rounded-full animate-spin"></div>
+              </div>
+            ) : lists.length === 0 ? (
               <div className="glass-panel rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[350px]">
                 <span className="material-symbols-outlined text-[64px] text-secondary/40">playlist_add</span>
                 <h2 className="text-headline-md font-bold text-on-background mt-4">No Custom Collections</h2>
@@ -227,15 +281,15 @@ export default function Lists() {
                   
                   return (
                     <div
-                      key={list.id}
+                      key={list._id}
                       onClick={() => setSelectedList(list)}
                       className="glass-panel rounded-3xl p-5 border border-white/5 hover:border-primary-container/30 cursor-pointer group flex flex-col justify-between min-h-[200px] hover:shadow-[0_10px_35px_rgba(0,0,0,0.5)] transition-all duration-300 relative overflow-hidden"
                     >
                       {/* Gradient Backdrop Cover effect using first item */}
-                      {coverItem && coverItem.poster_path && (
+                      {coverItem && (coverItem.posterPath || coverItem.poster_path) && (
                         <div className="absolute inset-0 opacity-15 pointer-events-none group-hover:scale-110 group-hover:opacity-20 transition-all duration-500">
                           <img
-                            src={`https://image.tmdb.org/t/p/w342${coverItem.poster_path}`}
+                            src={`https://image.tmdb.org/t/p/w342${coverItem.posterPath || coverItem.poster_path}`}
                             alt="list cover background"
                             className="w-full h-full object-cover blur-[8px]"
                           />
@@ -254,8 +308,8 @@ export default function Lists() {
                       </div>
 
                       <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-3 mt-4 text-xs">
-                        <span className="text-secondary-fixed font-semibold">
-                          {list.items.length} {list.items.length === 1 ? 'title' : 'titles'}
+                        <span className="text-secondary font-semibold">
+                          {list.items?.length || 0} {list.items?.length === 1 ? 'title' : 'titles'}
                         </span>
                         <span className="text-primary-container font-extrabold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
                           Open List

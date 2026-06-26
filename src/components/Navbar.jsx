@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import AuthModal from './AuthModal';
 
 const THEMES = [
   { id: 'default', name: 'Cinema Crimson', class: '', color: '#e50914' },
@@ -14,7 +16,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  const [userInitials, setUserInitials] = useState('AR');
+  const { user, setAuthModalOpen, logoutUser } = useAuth();
   const [activeTheme, setActiveTheme] = useState('default');
 
   useEffect(() => {
@@ -32,22 +34,8 @@ export default function Navbar() {
     setActiveTheme(savedTheme);
     applyTheme(savedTheme);
 
-    // Initialize initials
-    const storedName = localStorage.getItem('cineverse_profile_name') || 'Alex Rivera';
-    const parts = storedName.split(' ');
-    const initials = parts.map(p => p[0]).join('').toUpperCase().slice(0, 2);
-    setUserInitials(initials || 'AR');
-
-    const handleProfileUpdate = () => {
-      const updatedName = localStorage.getItem('cineverse_profile_name') || 'Alex Rivera';
-      const upParts = updatedName.split(' ');
-      setUserInitials(upParts.map(p => p[0]).join('').toUpperCase().slice(0, 2));
-    };
-    window.addEventListener('profile_updated', handleProfileUpdate);
-
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('profile_updated', handleProfileUpdate);
     };
   }, []);
 
@@ -232,15 +220,55 @@ export default function Navbar() {
           </div>
         </div>
         
-        <Link 
-          to="/profile"
-          className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transition-all duration-200 bg-primary-container shadow-[0_0_10px_rgba(229,9,20,0.3)] border ${
-            isActive('/profile') ? 'border-white scale-105' : 'border-outline-variant/30 hover:border-white hover:scale-105'
-          }`}
-          aria-label="Profile"
-        >
-          {userInitials}
-        </Link>
+        {user ? (
+          <div className="relative group/profile py-1">
+            <Link 
+              to="/profile"
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transition-all duration-200 bg-primary-container shadow-[0_0_10px_rgba(229,9,20,0.3)] border ${
+                isActive('/profile') ? 'border-white scale-105' : 'border-outline-variant/30 hover:border-white hover:scale-105'
+              }`}
+              aria-label="Profile"
+            >
+              {user.username.slice(0, 2).toUpperCase()}
+            </Link>
+            
+            {/* Profile Dropdown */}
+            <div className="absolute top-full right-0 mt-2 w-44 rounded-xl bg-[#131313]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 opacity-0 scale-95 pointer-events-none group-hover/profile:opacity-100 group-hover/profile:scale-100 group-hover/profile:pointer-events-auto transition-all duration-200 z-50 flex flex-col gap-1 before:content-[''] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2">
+              <Link 
+                to="/profile"
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 hover:bg-white/5 hover:text-white ${
+                  isActive('/profile') ? 'text-primary-container bg-white/5' : 'text-secondary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">person</span>
+                Profile
+              </Link>
+              <Link 
+                to="/profile/stats"
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 hover:bg-white/5 hover:text-white ${
+                  isActive('/profile/stats') ? 'text-primary-container bg-white/5' : 'text-secondary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">monitoring</span>
+                Stats Wrapped
+              </Link>
+              <button 
+                onClick={logoutUser}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-red-400 hover:bg-red-950/20 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+                Log Out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setAuthModalOpen(true)}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-container hover:brightness-110 active:scale-95 transition-all shadow-[0_0_10px_rgba(229,9,20,0.2)] cursor-pointer"
+          >
+            Sign In
+          </button>
+        )}
 
         {/* Mobile menu toggle */}
         <button 
@@ -333,15 +361,37 @@ export default function Navbar() {
             <span className="material-symbols-outlined text-[20px]">monitoring</span>
             Stats Wrapped
           </Link>
-          <Link 
-            to="/profile" 
-            className={`text-body-lg py-2 ${isActive('/profile') ? 'text-primary-container font-bold' : 'text-secondary'}`}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Profile
-          </Link>
+          {user ? (
+            <>
+              <Link 
+                to="/profile" 
+                className={`text-body-lg py-2 border-b border-white/5 ${isActive('/profile') ? 'text-primary-container font-bold' : 'text-secondary'}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Profile ({user.username})
+              </Link>
+              <button 
+                onClick={() => { logoutUser(); setMobileMenuOpen(false); }}
+                className="w-full text-left text-body-lg py-2 text-red-400 font-bold flex items-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+                Log Out
+              </button>
+            </>
+          ) : (
+            <button 
+              onClick={() => { setAuthModalOpen(true); setMobileMenuOpen(false); }}
+              className="w-full text-left text-body-lg py-2 text-primary-container font-bold flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">login</span>
+              Sign In
+            </button>
+          )}
         </div>
       )}
+
+      {/* Render Authentication Modal Overlay */}
+      <AuthModal />
     </nav>
   );
 }
