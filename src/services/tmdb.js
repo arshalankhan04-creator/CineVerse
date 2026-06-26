@@ -1,14 +1,34 @@
 async function fetchFromTMDB(endpoint, queryParams = {}) {
-  const allParams = { endpoint, ...queryParams };
-  const queryString = new URLSearchParams(allParams).toString();
-  const url = `/api/tmdb?${queryString}`;
+  const isDev = import.meta.env.DEV;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.status_message || errData.error || `API request failed with status ${response.status}`);
+  if (isDev) {
+    // In local development, fetch directly from TMDB to bypass Node network restrictions.
+    // The API key is visible in local dev tools, but it's safe because it's only on your local machine.
+    const API_BASE = 'https://api.themoviedb.org/3';
+    const TMDB_KEY = import.meta.env.VITE_TMDB_KEY || import.meta.env.REACT_APP_TMDB_KEY;
+    const allParams = { api_key: TMDB_KEY, ...queryParams };
+    const queryString = new URLSearchParams(allParams).toString();
+    const url = `${API_BASE}${endpoint}?${queryString}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.status_message || errData.error || `API request failed with status ${response.status}`);
+    }
+    return response.json();
+  } else {
+    // In production (Vercel), route through the serverless function to keep the API key hidden.
+    const allParams = { endpoint, ...queryParams };
+    const queryString = new URLSearchParams(allParams).toString();
+    const url = `/api/tmdb?${queryString}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.status_message || errData.error || `API request failed with status ${response.status}`);
+    }
+    return response.json();
   }
-  return response.json();
 }
 
 export const getPopularMovies = (page = 1) => fetchFromTMDB('/movie/popular', { page });

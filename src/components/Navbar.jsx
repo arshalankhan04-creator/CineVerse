@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+const THEMES = [
+  { id: 'default', name: 'Cinema Crimson', class: '', color: '#e50914' },
+  { id: 'emerald', name: 'Cyberpunk Emerald', class: 'theme-emerald', color: '#10b981' },
+  { id: 'ocean', name: 'Deep Ocean', class: 'theme-ocean', color: '#3b82f6' },
+  { id: 'amber', name: 'Sunset Amber', class: 'theme-amber', color: '#f59e0b' },
+  { id: 'purple', name: 'Neon Purple', class: 'theme-purple', color: '#8b5cf6' }
+];
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   const [userInitials, setUserInitials] = useState('AR');
+  const [activeTheme, setActiveTheme] = useState('default');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +26,11 @@ export default function Navbar() {
       }
     };
     window.addEventListener('scroll', handleScroll);
+
+    // Initialize Theme
+    const savedTheme = localStorage.getItem('cineverse_theme') || 'default';
+    setActiveTheme(savedTheme);
+    applyTheme(savedTheme);
 
     // Initialize initials
     const storedName = localStorage.getItem('cineverse_profile_name') || 'Alex Rivera';
@@ -36,6 +50,22 @@ export default function Navbar() {
       window.removeEventListener('profile_updated', handleProfileUpdate);
     };
   }, []);
+
+  const applyTheme = (themeId) => {
+    THEMES.forEach(t => {
+      if (t.class) document.documentElement.classList.remove(t.class);
+    });
+    const theme = THEMES.find(t => t.id === themeId);
+    if (theme && theme.class) {
+      document.documentElement.classList.add(theme.class);
+    }
+  };
+
+  const handleThemeChange = (themeId) => {
+    setActiveTheme(themeId);
+    applyTheme(themeId);
+    localStorage.setItem('cineverse_theme', themeId);
+  };
 
   const isActive = (path) => location.pathname === path;
 
@@ -174,6 +204,33 @@ export default function Navbar() {
         >
           <span className="material-symbols-outlined text-[24px]">search</span>
         </Link>
+        
+        {/* Theme Switcher */}
+        <div className="relative group/theme py-1">
+          <button 
+            className="text-secondary hover:text-primary-container transition-colors p-1 flex items-center"
+            aria-label="Theme Switcher"
+          >
+            <span className="material-symbols-outlined text-[24px]">palette</span>
+          </button>
+          
+          <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-[#131313]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 opacity-0 scale-95 pointer-events-none group-hover/theme:opacity-100 group-hover/theme:scale-100 group-hover/theme:pointer-events-auto transition-all duration-200 z-50 flex flex-col gap-1 before:content-[''] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2">
+            <div className="text-[10px] font-bold text-secondary uppercase px-3 py-1 tracking-wider">Select Theme</div>
+            {THEMES.map(theme => (
+              <button
+                key={theme.id}
+                onClick={() => handleThemeChange(theme.id)}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between hover:bg-white/5 ${activeTheme === theme.id ? 'text-white bg-white/5' : 'text-secondary'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.2)] border border-white/20" style={{ backgroundColor: theme.color }}></div>
+                  {theme.name}
+                </div>
+                {activeTheme === theme.id && <span className="material-symbols-outlined text-[14px]">check</span>}
+              </button>
+            ))}
+          </div>
+        </div>
         
         <Link 
           to="/profile"

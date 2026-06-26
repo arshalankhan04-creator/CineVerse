@@ -52,7 +52,7 @@ export default function MovieCard({ movie, showRating = true, index = -1 }) {
       className="group flex flex-col gap-stack-sm cursor-pointer w-full text-left animate-slide-in"
       style={index >= 0 ? { animationDelay: `${(index % 12) * 50}ms` } : {}}
     >
-      <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-surface-container transition-all duration-300 group-hover:scale-[1.05] group-hover:-translate-y-2 group-hover:shadow-[0_10px_30px_rgba(229,9,20,0.35)] border border-outline-variant/10 group-hover:border-primary-container/30">
+      <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-surface-container transition-all duration-300 group-hover:scale-[1.05] group-hover:-translate-y-2 border border-outline-variant/10 card-hover-shadow">
         <img 
           src={getMoviePosterUrl(poster_path)} 
           alt={displayTitle}

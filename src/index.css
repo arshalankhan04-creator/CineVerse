@@ -135,3 +135,59 @@
   border-color: rgba(233, 196, 0, 0.4);
   transform: scale(1.06);
 }
+
+/* Theme Switching Utilities */
+:root {
+  --theme-shadow-color: rgba(229, 9, 20, 0.35);
+  --theme-border-color: rgba(229, 9, 20, 0.3);
+  --theme-border-color-hover: rgba(229, 9, 20, 0.5);
+}
+
+.theme-emerald {
+  --color-primary: #6ee7b7;
+  --color-primary-container: #10b981;
+  --color-on-primary-container: #ffffff;
+  --color-inverse-primary: #059669;
+  --theme-shadow-color: rgba(16, 185, 129, 0.35);
+  --theme-border-color: rgba(16, 185, 129, 0.3);
+  --theme-border-color-hover: rgba(16, 185, 129, 0.5);
+}
+
+.theme-ocean {
+  --color-primary: #93c5fd;
+  --color-primary-container: #3b82f6;
+  --color-on-primary-container: #ffffff;
+  --color-inverse-primary: #2563eb;
+  --theme-shadow-color: rgba(59, 130, 246, 0.35);
+  --theme-border-color: rgba(59, 130, 246, 0.3);
+  --theme-border-color-hover: rgba(59, 130, 246, 0.5);
+}
+
+.theme-amber {
+  --color-primary: #fcd34d;
+  --color-primary-container: #f59e0b;
+  --color-on-primary-container: #ffffff;
+  --color-inverse-primary: #d97706;
+  --theme-shadow-color: rgba(245, 158, 11, 0.35);
+  --theme-border-color: rgba(245, 158, 11, 0.3);
+  --theme-border-color-hover: rgba(245, 158, 11, 0.5);
+}
+
+.theme-purple {
+  --color-primary: #d8b4fe;
+  --color-primary-container: #8b5cf6;
+  --color-on-primary-container: #ffffff;
+  --color-inverse-primary: #7c3aed;
+  --theme-shadow-color: rgba(139, 92, 246, 0.35);
+  --theme-border-color: rgba(139, 92, 246, 0.3);
+  --theme-border-color-hover: rgba(139, 92, 246, 0.5);
+}
+
+.card-hover-shadow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group:hover .card-hover-shadow {
+  box-shadow: 0 10px 30px var(--theme-shadow-color);
+  border-color: var(--theme-border-color-hover);
+}
