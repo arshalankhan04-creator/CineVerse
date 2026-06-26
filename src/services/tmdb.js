@@ -1,31 +1,12 @@
-const API_BASE = 'https://api.themoviedb.org/3';
-const TMDB_KEY = import.meta.env.REACT_APP_TMDB_KEY || import.meta.env.VITE_TMDB_KEY || '';
-
-const getHeadersAndParams = () => {
-  const headers = {
-    accept: 'application/json',
-  };
-  const params = {};
-
-  if (TMDB_KEY.trim().length > 50) {
-    headers['Authorization'] = `Bearer ${TMDB_KEY.trim()}`;
-  } else {
-    params['api_key'] = TMDB_KEY.trim();
-  }
-  return { headers, params };
-};
-
 async function fetchFromTMDB(endpoint, queryParams = {}) {
-  const { headers, params } = getHeadersAndParams();
-  const allParams = { ...params, ...queryParams };
-  
+  const allParams = { endpoint, ...queryParams };
   const queryString = new URLSearchParams(allParams).toString();
-  const url = `${API_BASE}${endpoint}${queryString ? `?${queryString}` : ''}`;
-  
-  const response = await fetch(url, { headers });
+  const url = `/api/tmdb?${queryString}`;
+
+  const response = await fetch(url);
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.status_message || `TMDB API request failed with status ${response.status}`);
+    throw new Error(errData.status_message || errData.error || `API request failed with status ${response.status}`);
   }
   return response.json();
 }
