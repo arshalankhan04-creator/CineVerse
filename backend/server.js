@@ -20,6 +20,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/watchlist', require('./routes/watchlistRoutes'));
 app.use('/api/lists', require('./routes/listRoutes'));
 app.use('/api/trivia', require('./routes/triviaRoutes'));
+app.use('/api/watched', require('./routes/watchedRoutes'));
 
 // Basic route
 app.get('/', (req, res) => {

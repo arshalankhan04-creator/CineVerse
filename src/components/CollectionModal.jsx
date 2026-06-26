@@ -1,67 +1,141 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 export default function CollectionModal({ isOpen, onClose, media }) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [lists, setLists] = useState([]);
   const [newListName, setNewListName] = useState('');
   const [newListDesc, setNewListDesc] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const LISTS_KEY = 'cineverse_custom_lists';
 
-  // Load lists from localStorage
-  useEffect(() => {
-    if (isOpen) {
+  const loadLists = async () => {
+    if (!user) {
       const storedLists = JSON.parse(localStorage.getItem(LISTS_KEY) || '[]');
       setLists(storedLists);
+      return;
     }
-  }, [isOpen]);
+
+    try {
+      setLoading(true);
+      const data = await api.getLists();
+      setLists(data);
+    } catch (err) {
+      console.error('Failed to fetch collections:', err.message);
+      showToast('Failed to load collections', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadLists();
+    }
+  }, [isOpen, user]);
 
   if (!isOpen || !media) return null;
 
-  const saveLists = (updatedLists) => {
-    localStorage.setItem(LISTS_KEY, JSON.stringify(updatedLists));
-    setLists(updatedLists);
-    // Dispatch event to notify Lists page or other listeners
-    window.dispatchEvent(new Event('lists_updated'));
-  };
-
-  const handleToggleList = (listId) => {
-    const updatedLists = lists.map(list => {
-      if (list.id === listId) {
-        const itemExists = list.items.some(item => item.id === media.id);
-        let updatedItems;
-        if (itemExists) {
-          updatedItems = list.items.filter(item => item.id !== media.id);
-          showToast(`Removed from "${list.name}"`, 'info');
-        } else {
-          updatedItems = [...list.items, media];
-          showToast(`Added to "${list.name}"`, 'success');
+  const handleToggleList = async (listId) => {
+    if (!user) {
+      const updatedLists = lists.map(list => {
+        if (list.id === listId) {
+          const itemExists = list.items.some(item => item.id === media.id);
+          let updatedItems;
+          if (itemExists) {
+            updatedItems = list.items.filter(item => item.id !== media.id);
+            showToast(`Removed from "${list.name}"`, 'info');
+          } else {
+            updatedItems = [...list.items, media];
+            showToast(`Added to "${list.name}"`, 'success');
+          }
+          return { ...list, items: updatedItems };
         }
-        return { ...list, items: updatedItems };
-      }
-      return list;
-    });
-    saveLists(updatedLists);
+        return list;
+      });
+      localStorage.setItem(LISTS_KEY, JSON.stringify(updatedLists));
+      setLists(updatedLists);
+      window.dispatchEvent(new Event('lists_updated'));
+      return;
+    }
+
+    // Database Toggle
+    const list = lists.find(l => l._id === listId);
+    if (!list) return;
+
+    const itemExists = list.items?.some(item => (item.tmdbId || item.id) === media.id);
+    let updatedItems;
+    if (itemExists) {
+      updatedItems = list.items.filter(item => (item.tmdbId || item.id) !== media.id);
+    } else {
+      updatedItems = [...(list.items || []), {
+        tmdbId: media.id,
+        mediaType: media.mediaType || media.media_type || (media.title ? 'movie' : 'tv'),
+        title: media.title || media.name,
+        posterPath: media.poster_path || media.posterPath
+      }];
+    }
+
+    const formattedItems = updatedItems.map(item => ({
+      tmdbId: item.tmdbId || item.id,
+      mediaType: item.mediaType || item.media_type || (item.title ? 'movie' : 'tv'),
+      title: item.title || item.name,
+      posterPath: item.posterPath || item.poster_path
+    }));
+
+    try {
+      await api.updateListItems(listId, formattedItems);
+      showToast(itemExists ? `Removed from "${list.name}"` : `Added to "${list.name}"`, itemExists ? 'info' : 'success');
+      loadLists();
+      window.dispatchEvent(new Event('lists_updated'));
+    } catch (err) {
+      showToast(err.message || 'Failed to update collection', 'error');
+    }
   };
 
-  const handleCreateList = (e) => {
+  const handleCreateList = async (e) => {
     e.preventDefault();
     if (!newListName.trim()) return;
 
-    const newList = {
-      id: Date.now().toString(),
-      name: newListName.trim(),
-      description: newListDesc.trim() || 'Custom collection',
-      items: [media] // Automatically add current movie/show
-    };
+    if (!user) {
+      const newList = {
+        id: Date.now().toString(),
+        name: newListName.trim(),
+        description: newListDesc.trim() || 'Custom collection',
+        items: [media]
+      };
+      const updatedLists = [...lists, newList];
+      localStorage.setItem(LISTS_KEY, JSON.stringify(updatedLists));
+      setLists(updatedLists);
+      showToast(`Created "${newListName}" & added item!`, 'success');
+      window.dispatchEvent(new Event('lists_updated'));
+    } else {
+      // Database create
+      try {
+        const formattedItem = {
+          tmdbId: media.id,
+          mediaType: media.media_type || media.mediaType || (media.title ? 'movie' : 'tv'),
+          title: media.title || media.name,
+          posterPath: media.poster_path || media.posterPath
+        };
+        await api.createList(
+          newListName.trim(), 
+          newListDesc.trim() || 'Custom collection',
+          [formattedItem]
+        );
+        showToast(`Created "${newListName}" & added item!`, 'success');
+        loadLists();
+        window.dispatchEvent(new Event('lists_updated'));
+      } catch (err) {
+        showToast(err.message || 'Failed to create collection', 'error');
+      }
+    }
 
-    const updatedLists = [...lists, newList];
-    saveLists(updatedLists);
-    showToast(`Created "${newListName}" & added item!`, 'success');
-    
-    // Reset form
     setNewListName('');
     setNewListDesc('');
     setShowCreateForm(false);
@@ -107,15 +181,18 @@ export default function CollectionModal({ isOpen, onClose, media }) {
 
         {/* List of Custom Collections */}
         <div className="flex-grow max-h-[220px] overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin">
-          {lists.length === 0 ? (
+          {loading ? (
+            <p className="text-secondary text-sm text-center py-6">Loading collections...</p>
+          ) : lists.length === 0 ? (
             <p className="text-secondary text-sm text-center py-6">No custom collections yet.</p>
           ) : (
             lists.map(list => {
-              const hasItem = list.items.some(item => item.id === media.id);
+              const hasItem = list.items?.some(item => (item.tmdbId || item.id) === media.id);
+              const listId = list._id || list.id;
               return (
                 <button
-                  key={list.id}
-                  onClick={() => handleToggleList(list.id)}
+                  key={listId}
+                  onClick={() => handleToggleList(listId)}
                   className="flex items-center justify-between px-4 py-3 rounded-xl bg-surface-container hover:bg-white/5 border border-white/5 transition-all text-left group"
                 >
                   <div>
@@ -123,7 +200,7 @@ export default function CollectionModal({ isOpen, onClose, media }) {
                       {list.name}
                     </p>
                     <p className="text-xs text-secondary truncate max-w-[280px]">
-                      {list.items.length} {list.items.length === 1 ? 'item' : 'items'}
+                      {list.items?.length || 0} {list.items?.length === 1 ? 'item' : 'items'}
                     </p>
                   </div>
                   <span className={`material-symbols-outlined text-[22px] transition-colors ${
@@ -163,7 +240,7 @@ export default function CollectionModal({ isOpen, onClose, media }) {
                 type="text"
                 placeholder="Description (Optional)"
                 value={newListDesc}
-                onChange={(e) => newListDesc(e.target.value)}
+                onChange={(e) => setNewListDesc(e.target.value)}
                 className="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2 text-sm text-on-background focus:outline-none focus:border-primary-container transition-colors"
                 maxLength={100}
               />

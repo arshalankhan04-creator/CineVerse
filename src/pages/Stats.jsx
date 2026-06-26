@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getMovieDetails, getTVShowDetails, getMoviePosterUrl } from '../services/tmdb';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ErrorDisplay from '../components/ErrorDisplay';
+import { useAuth } from '../context/AuthContext';
 
 export default function Stats() {
-  const [watchlist, setWatchlist] = useState([]);
+  const { user, watchedList, watchlist: authWatchlist, setAuthModalOpen } = useAuth();
+  const [itemsList, setItemsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -22,26 +25,44 @@ export default function Stats() {
     lowestRatedTitle: null
   });
 
-  const WATCHLIST_KEY = 'cineverse_watchlist';
-
   useEffect(() => {
     async function calculateStats() {
       try {
         setLoading(true);
         setError(null);
 
-        const savedList = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-        setWatchlist(savedList);
+        // Use watched history for logged-in users, fallback to watchlist for guests
+        let listToUse;
+        if (user && watchedList.length > 0) {
+          listToUse = watchedList.map(item => ({
+            id: item.tmdbId,
+            type: item.mediaType
+          }));
+        } else if (user) {
+          // Fallback to watchlist if no watched history yet
+          listToUse = authWatchlist.map(item => ({
+            id: item.tmdbId,
+            type: item.mediaType
+          }));
+        } else {
+          const localList = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
+          listToUse = localList.map(item => ({
+            id: item.id,
+            type: (item.first_air_date || (!item.title && item.name)) ? 'tv' : 'movie'
+          }));
+        }
 
-        if (savedList.length === 0) {
+        setItemsList(listToUse);
+
+        if (listToUse.length === 0) {
           setLoading(false);
           return;
         }
 
         // Fetch detailed data for all items in parallel
         const detailedItems = await Promise.all(
-          savedList.map(async (item) => {
-            const isTV = item.first_air_date || (!item.title && item.name);
+          listToUse.map(async (item) => {
+            const isTV = item.type === 'tv';
             try {
               if (isTV) {
                 const data = await getTVShowDetails(item.id);
@@ -69,7 +90,6 @@ export default function Stats() {
         let revenueTotal = 0;
         let highest = null;
         let lowest = null;
-        const directorsMap = {};
 
         detailedItems.forEach(item => {
           // 1. Media count
@@ -112,11 +132,6 @@ export default function Stats() {
           }
         });
 
-        // Sort genres by count to get top
-        const sortedGenres = Object.entries(genres)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5);
-
         setStats({
           totalMinutes: totalMin,
           movieCount: movieC,
@@ -138,7 +153,7 @@ export default function Stats() {
     }
 
     calculateStats();
-  }, []);
+  }, [user, watchedList, authWatchlist]);
 
   const formatWatchTime = (totalMins) => {
     if (!totalMins) return '0h';
@@ -167,7 +182,12 @@ export default function Stats() {
     return <ErrorDisplay error={error} retryAction={() => window.location.reload()} />;
   }
 
-  if (watchlist.length === 0) {
+  // Determine the data source label
+  const dataSourceLabel = user && watchedList.length > 0 
+    ? 'watched history' 
+    : 'watchlist';
+
+  if (itemsList.length === 0) {
     return (
       <div className="bg-level-0 min-h-screen pt-24 pb-stack-lg page-transition text-left">
         <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
@@ -177,9 +197,14 @@ export default function Stats() {
           
           <div className="glass-panel rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[350px] mt-8">
             <span className="material-symbols-outlined text-[64px] text-secondary/35 animate-pulse">monitoring</span>
-            <h2 className="text-headline-md font-bold text-on-background mt-4">Awaiting Watchlist Entries</h2>
+            <h2 className="text-headline-md font-bold text-on-background mt-4">
+              {user ? 'No Watched History Yet' : 'Awaiting Watchlist Entries'}
+            </h2>
             <p className="text-secondary max-w-sm mt-2 text-sm leading-relaxed">
-              Your Stats Wrapped dashboard compiles summary insights from titles saved in your My Watchlist. Add some movies and TV shows first!
+              {user 
+                ? 'Mark movies and TV shows as watched using the 👁 button on any title page to build your personal stats dashboard.'
+                : 'Your Stats Wrapped dashboard compiles summary insights from titles saved in your My Watchlist. Add some movies and TV shows first!'
+              }
             </p>
             <Link
               to="/explore"
@@ -209,7 +234,7 @@ export default function Stats() {
             Stats Wrapped
           </h1>
           <p className="text-body-md text-secondary mt-1">
-            Summary insights compiled from {watchlist.length} saved titles in your library.
+            Summary insights compiled from {itemsList.length} titles in your {dataSourceLabel}.
           </p>
         </div>
 
@@ -312,7 +337,7 @@ export default function Stats() {
                         <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
                           <div 
                             className={`h-full rounded-full transition-all ${barColors[idx % barColors.length]}`}
-                            style={{ width: `${(count / watchlist.length) * 100}%` }}
+                            style={{ width: `${(count / itemsList.length) * 100}%` }}
                           ></div>
                         </div>
                       </div>
@@ -383,7 +408,7 @@ export default function Stats() {
 
             <div className="flex flex-col gap-4 mt-6">
               {Object.entries(stats.eraCounts).map(([eraName, count]) => {
-                const percentage = watchlist.length > 0 ? (count / watchlist.length) * 100 : 0;
+                const percentage = itemsList.length > 0 ? (count / itemsList.length) * 100 : 0;
                 
                 return (
                   <div key={eraName} className="flex items-center gap-4">

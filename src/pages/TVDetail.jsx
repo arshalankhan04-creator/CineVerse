@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { 
   getTVShowDetails, 
   getTVShowCredits, 
@@ -19,6 +20,7 @@ import MovieCard from '../components/MovieCard';
 export default function TVDetail() {
   const { id } = useParams();
   const { showToast } = useToast();
+  const { watchedList, toggleWatched } = useAuth();
   
   // Data states
   const [show, setShow] = useState(null);
@@ -276,6 +278,16 @@ export default function TVDetail() {
                     {isSaved ? 'bookmark_added' : 'bookmark'}
                   </span>
                   {isSaved ? 'Saved to List' : 'Add to Watchlist'}
+                </button>
+
+                <button 
+                  onClick={() => toggleWatched(show, (show.episode_run_time && show.episode_run_time.length > 0) ? show.episode_run_time[0] : 0)}
+                  className={`glass-panel text-label-md font-label-md py-3.5 px-4 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ${
+                    watchedList.some(w => w.tmdbId === show?.id) ? 'bg-primary-container/20 border-primary-container text-primary-container' : 'text-on-background hover:bg-white/10'
+                  }`}
+                  title={watchedList.some(w => w.tmdbId === show?.id) ? "Marked as Watched" : "Mark as Watched"}
+                >
+                  <span className={`material-symbols-outlined ${watchedList.some(w => w.tmdbId === show?.id) ? 'filled-icon' : ''}`}>visibility</span>
                 </button>
 
                 <button 

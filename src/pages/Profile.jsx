@@ -1,29 +1,56 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+import { getGenreList, getTVGenreList } from '../services/tmdb';
 
 export default function Profile() {
   const { showToast } = useToast();
-  const { user, watchlist, setAuthModalOpen } = useAuth();
-  const [favoriteGenres, setFavoriteGenres] = useState(['Action', 'Sci-Fi', 'Thriller']);
+  const { user, watchlist, watchedStats, setAuthModalOpen, setUser } = useAuth();
+  const [favoriteGenres, setFavoriteGenres] = useState(user?.favoriteGenres || []);
+  const [availableGenres, setAvailableGenres] = useState([]);
 
   const GENRES_KEY = 'cineverse_profile_genres';
-  const availableGenres = [
-    'Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 
-    'Thriller', 'Romance', 'Fantasy', 'Mystery', 'Adventure'
-  ];
 
+  // Fetch all genres from TMDB (movie + TV merged)
   useEffect(() => {
-    // Get saved favorite genres from local storage
-    const savedGenres = localStorage.getItem(GENRES_KEY);
-    if (savedGenres) {
-      setFavoriteGenres(JSON.parse(savedGenres));
-    } else {
-      localStorage.setItem(GENRES_KEY, JSON.stringify(['Action', 'Sci-Fi', 'Thriller']));
+    async function loadGenres() {
+      try {
+        const [movieGenres, tvGenres] = await Promise.all([
+          getGenreList(),
+          getTVGenreList()
+        ]);
+        const allNames = new Set();
+        [...(movieGenres.genres || []), ...(tvGenres.genres || [])].forEach(g => allNames.add(g.name));
+        setAvailableGenres([...allNames].sort());
+      } catch (err) {
+        console.error('Failed to fetch genres from TMDB:', err);
+        // Fallback to a basic set if API fails
+        setAvailableGenres([
+          'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy',
+          'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'
+        ]);
+      }
     }
+    loadGenres();
   }, []);
 
-  const toggleGenre = (genre) => {
+  useEffect(() => {
+    if (user && user.favoriteGenres && user.favoriteGenres.length > 0) {
+      setFavoriteGenres(user.favoriteGenres);
+    } else {
+      // Fallback to local storage if not logged in or no genres saved
+      const savedGenres = localStorage.getItem(GENRES_KEY);
+      if (savedGenres) {
+        setFavoriteGenres(JSON.parse(savedGenres));
+      } else {
+        localStorage.setItem(GENRES_KEY, JSON.stringify(['Action', 'Sci-Fi', 'Thriller']));
+        setFavoriteGenres(['Action', 'Sci-Fi', 'Thriller']);
+      }
+    }
+  }, [user]);
+
+  const toggleGenre = async (genre) => {
     let updated;
     const isAdding = !favoriteGenres.includes(genre);
     if (favoriteGenres.includes(genre)) {
@@ -32,8 +59,27 @@ export default function Profile() {
       updated = [...favoriteGenres, genre];
     }
     setFavoriteGenres(updated);
-    localStorage.setItem(GENRES_KEY, JSON.stringify(updated));
+    
+    if (user) {
+      try {
+        await api.updateGenres(updated);
+        setUser(prev => ({ ...prev, favoriteGenres: updated }));
+      } catch (err) {
+        console.error('Failed to sync genres:', err);
+      }
+    } else {
+      localStorage.setItem(GENRES_KEY, JSON.stringify(updated));
+    }
+    
     showToast(isAdding ? `Added ${genre} to favorites ✓` : `Removed ${genre} from favorites ✗`, 'info');
+  };
+
+  const formatWatchTime = (minutes) => {
+    if (!minutes) return '0h';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
   // Compute initials for the avatar
@@ -106,7 +152,7 @@ export default function Profile() {
               <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-2 mt-2 text-xs">
                 <span className="inline-flex items-center gap-1 bg-primary-container/10 text-primary-container border border-primary-container/30 px-3.5 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider backdrop-blur-sm w-fit self-center md:self-auto">
                   <span className="material-symbols-outlined text-[14px] filled-icon">stars</span>
-                  CineVerse Member
+                  CineVerse {user.membershipTier || 'Basic'}
                 </span>
                 <span className="text-secondary font-body-md text-body-md ml-2">{user.email}</span>
                 <span className="text-secondary/65 ml-2 hidden md:inline">•</span>
@@ -126,7 +172,7 @@ export default function Profile() {
                 <span className="material-symbols-outlined text-[20px]">movie</span>
               </div>
               <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Movies Watched</span>
-              <span className="font-headline-md text-headline-md text-on-surface">128</span>
+              <span className="font-headline-md text-headline-md text-on-surface">{watchedStats?.moviesWatchedCount || 0}</span>
             </div>
             
             <div className="glass-panel rounded-xl p-stack-md flex flex-col items-center sm:items-start hover:scale-[1.02] transition-transform duration-300">
@@ -134,7 +180,7 @@ export default function Profile() {
                 <span className="material-symbols-outlined text-[20px]">schedule</span>
               </div>
               <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Watch Time</span>
-              <span className="font-headline-md text-headline-md text-on-surface">452h</span>
+              <span className="font-headline-md text-headline-md text-on-surface">{formatWatchTime(watchedStats?.totalWatchTimeMinutes)}</span>
             </div>
 
             <div className="glass-panel rounded-xl p-stack-md flex flex-col items-center sm:items-start hover:scale-[1.02] transition-transform duration-300">

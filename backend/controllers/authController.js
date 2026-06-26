@@ -41,7 +41,9 @@ exports.register = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        profileTheme: user.profileTheme
+        profileTheme: user.profileTheme,
+        favoriteGenres: user.favoriteGenres,
+        membershipTier: user.membershipTier
       }
     });
   } catch (err) {
@@ -82,7 +84,9 @@ exports.login = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        profileTheme: user.profileTheme
+        profileTheme: user.profileTheme,
+        favoriteGenres: user.favoriteGenres,
+        membershipTier: user.membershipTier
       }
     });
   } catch (err) {
@@ -99,6 +103,32 @@ exports.getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       data: user
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// @desc    Update user favorite genres
+// @route   PUT /api/auth/me/genres
+// @access  Private
+exports.updateGenres = async (req, res) => {
+  try {
+    const { genres } = req.body;
+    
+    if (!Array.isArray(genres)) {
+      return res.status(400).json({ error: 'Genres must be an array' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { favoriteGenres: genres },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: user.favoriteGenres
     });
   } catch (err) {
     res.status(400).json({ error: err.message });

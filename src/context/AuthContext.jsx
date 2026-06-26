@@ -8,6 +8,8 @@ export const AuthProvider = ({ children }) => {
   const { showToast } = useToast();
   const [user, setUser] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
+  const [watchedList, setWatchedList] = useState([]);
+  const [watchedStats, setWatchedStats] = useState({ moviesWatchedCount: 0, totalWatchTimeMinutes: 0 });
   const [loading, setLoading] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -23,6 +25,12 @@ export const AuthProvider = ({ children }) => {
           const list = await api.getWatchlist();
           setWatchlist(list);
           
+          // Fetch watched data
+          const wList = await api.getWatched();
+          setWatchedList(wList);
+          const wStats = await api.getWatchedStats();
+          setWatchedStats(wStats);
+          
           // Apply theme if saved in user profile
           if (profile.profileTheme && profile.profileTheme !== 'default') {
             applyThemeClass(profile.profileTheme);
@@ -32,6 +40,8 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('cineverse_token');
           setUser(null);
           setWatchlist([]);
+          setWatchedList([]);
+          setWatchedStats({ moviesWatchedCount: 0, totalWatchTimeMinutes: 0 });
         }
       } else {
         const localList = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
@@ -108,9 +118,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('cineverse_token', data.token);
       setUser(data.user);
       
-      // Fetch user's watchlist
+      // Fetch user's watchlist and watched history
       const list = await api.getWatchlist();
       setWatchlist(list);
+      const wList = await api.getWatched();
+      setWatchedList(wList);
+      const wStats = await api.getWatchedStats();
+      setWatchedStats(wStats);
 
       // Apply user theme preference
       if (data.user.profileTheme) {
@@ -167,6 +181,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('cineverse_token');
     setUser(null);
     setWatchlist([]);
+    setWatchedList([]);
+    setWatchedStats({ moviesWatchedCount: 0, totalWatchTimeMinutes: 0 });
     showToast('Logged out successfully', 'info');
     
     // Clear theme
@@ -237,6 +253,46 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const toggleWatched = async (movie, runtime = 0) => {
+    if (!user) {
+      showToast('Please sign in to track watched history', 'info');
+      setAuthModalOpen(true);
+      return;
+    }
+
+    const movieId = movie.id || movie.tmdbId;
+    const isAlreadyWatched = watchedList.some(item => item.tmdbId === movieId);
+    
+    try {
+      if (isAlreadyWatched) {
+        await api.removeFromWatched(movieId);
+        setWatchedList(prev => prev.filter(item => item.tmdbId !== movieId));
+        showToast('Removed from Watched History', 'info');
+      } else {
+        const titleText = movie.title || movie.name;
+        const posterPath = movie.poster_path || movie.posterPath;
+        const mediaType = movie.media_type || movie.mediaType || (movie.first_air_date || movie.name ? 'tv' : 'movie');
+
+        const newItem = await api.addToWatched({
+          tmdbId: movieId,
+          mediaType,
+          title: titleText,
+          posterPath,
+          runtime
+        });
+        setWatchedList(prev => [newItem, ...prev]);
+        showToast('Marked as Watched ✓', 'success');
+      }
+      
+      // Update stats
+      const stats = await api.getWatchedStats();
+      setWatchedStats(stats);
+      window.dispatchEvent(new Event('watched_updated'));
+    } catch (err) {
+      showToast(err.message || 'Failed to update watched history', 'error');
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -249,6 +305,9 @@ export const AuthProvider = ({ children }) => {
         registerUser,
         logoutUser,
         toggleWatchlist,
+        toggleWatched,
+        watchedList,
+        watchedStats,
         setUser
       }}
     >

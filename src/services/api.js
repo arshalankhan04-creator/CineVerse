@@ -1,4 +1,16 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const getApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_URL || import.meta.env.REACT_APP_API_URL;
+  if (!envUrl) {
+    return 'http://localhost:5000/api';
+  }
+  const trimmed = envUrl.trim().replace(/\/+$/, '');
+  if (!trimmed.endsWith('/api')) {
+    return `${trimmed}/api`;
+  }
+  return trimmed;
+};
+
+const API_BASE = getApiBase();
 
 /**
  * Custom fetch wrapper that automatically injects the JWT token
@@ -62,46 +74,100 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 
-  // Watchlist
-  getWatchlist: () => request('/watchlist'),
-  
-  addToWatchlist: (item) => 
-    request('/watchlist', {
+  updateGenres: (genres) => 
+    request('/auth/me/genres', {
+      method: 'PUT',
+      body: JSON.stringify({ genres }),
+    }),
+
+  // Watched History
+  getWatched: async () => {
+    const res = await request('/watched');
+    return res.data;
+  },
+
+  getWatchedStats: async () => {
+    const res = await request('/watched/stats');
+    return res.data;
+  },
+
+  addToWatched: async (item) => {
+    const res = await request('/watched', {
       method: 'POST',
       body: JSON.stringify(item),
-    }),
+    });
+    return res.data;
+  },
 
-  removeFromWatchlist: (tmdbId) => 
-    request(`/watchlist/${tmdbId}`, {
+  removeFromWatched: async (tmdbId) => {
+    const res = await request(`/watched/${tmdbId}`, {
       method: 'DELETE',
-    }),
+    });
+    return res.data;
+  },
+
+
+  // Watchlist
+  getWatchlist: async () => {
+    const res = await request('/watchlist');
+    return res.data;
+  },
+  
+  addToWatchlist: async (item) => {
+    const res = await request('/watchlist', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
+    return res.data;
+  },
+
+  removeFromWatchlist: async (tmdbId) => {
+    const res = await request(`/watchlist/${tmdbId}`, {
+      method: 'DELETE',
+    });
+    return res.data;
+  },
 
   // Custom Lists
-  getLists: () => request('/lists'),
+  getLists: async () => {
+    const res = await request('/lists');
+    return res.data;
+  },
 
-  createList: (name, description) => 
-    request('/lists', {
+  createList: async (name, description, items = []) => {
+    const res = await request('/lists', {
       method: 'POST',
-      body: JSON.stringify({ name, description }),
-    }),
+      body: JSON.stringify({ name, description, items }),
+    });
+    return res.data;
+  },
 
-  updateListItems: (listId, items) => 
-    request(`/lists/${listId}/items`, {
+  updateListItems: async (listId, items) => {
+    const res = await request(`/lists/${listId}/items`, {
       method: 'PUT',
       body: JSON.stringify({ items }),
-    }),
+    });
+    return res.data;
+  },
 
-  deleteList: (listId) => 
-    request(`/lists/${listId}`, {
+  deleteList: async (listId) => {
+    const res = await request(`/lists/${listId}`, {
       method: 'DELETE',
-    }),
+    });
+    return res.data;
+  },
 
   // Trivia
-  submitScore: (score, category) => 
-    request('/trivia/score', {
+  submitScore: async (score, category) => {
+    const res = await request('/trivia/score', {
       method: 'POST',
       body: JSON.stringify({ score, category }),
-    }),
+    });
+    return res.data;
+  },
 
-  getLeaderboard: () => request('/trivia/leaderboard'),
+  getLeaderboard: async () => {
+    const res = await request('/trivia/leaderboard');
+    return res.data;
+  },
 };

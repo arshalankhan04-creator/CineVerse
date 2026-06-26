@@ -27,6 +27,15 @@ const UserSchema = new mongoose.Schema({
   profileTheme: {
     type: String,
     default: 'default'
+  },
+  favoriteGenres: {
+    type: [String],
+    default: []
+  },
+  membershipTier: {
+    type: String,
+    enum: ['Basic', 'Premium', 'VIP'],
+    default: 'Basic'
   }
 }, {
   timestamps: true

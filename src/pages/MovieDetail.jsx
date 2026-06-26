@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { 
   getMovieDetails, 
   getMovieCredits, 
@@ -19,6 +20,7 @@ import MovieCard from '../components/MovieCard';
 export default function MovieDetail() {
   const { id } = useParams();
   const { showToast } = useToast();
+  const { watchedList, toggleWatched } = useAuth();
   
   // Data states
   const [movie, setMovie] = useState(null);
@@ -282,6 +284,16 @@ export default function MovieDetail() {
                     {isSaved ? 'bookmark_added' : 'bookmark'}
                   </span>
                   {isSaved ? 'In Watchlist' : 'Add to Watchlist'}
+                </button>
+
+                <button 
+                  onClick={() => toggleWatched(movie, movie.runtime)}
+                  className={`glass-panel text-label-md font-label-md py-3.5 px-4 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ${
+                    watchedList.some(w => w.tmdbId === movie?.id) ? 'bg-primary-container/20 border-primary-container text-primary-container' : 'text-on-background hover:bg-white/10'
+                  }`}
+                  title={watchedList.some(w => w.tmdbId === movie?.id) ? "Marked as Watched" : "Mark as Watched"}
+                >
+                  <span className={`material-symbols-outlined ${watchedList.some(w => w.tmdbId === movie?.id) ? 'filled-icon' : ''}`}>visibility</span>
                 </button>
 
                 <button 
