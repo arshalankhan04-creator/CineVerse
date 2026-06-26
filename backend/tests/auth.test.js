@@ -75,4 +75,51 @@ describe('Auth API', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body.data.username).toBe('meuser');
   });
+
+  it('should get current logged in user details (me) with formatted profile info', async () => {
+    const regRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        username: 'meuser2',
+        email: 'me2@example.com',
+        password: 'password123'
+      });
+
+    const token = regRes.body.token;
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.data.username).toBe('meuser2');
+    expect(res.body.data.email).toBe('me2@example.com');
+    expect(res.body.data.profileTheme).toBeDefined();
+    expect(res.body.data.favoriteGenres).toBeDefined();
+    expect(res.body.data.id).toBeDefined();
+  });
+
+  it('should update profile theme preference', async () => {
+    const regRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        username: 'themeuser',
+        email: 'theme@example.com',
+        password: 'password123'
+      });
+
+    const token = regRes.body.token;
+
+    const res = await request(app)
+      .put('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ profileTheme: 'dark' });
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.profileTheme).toBe('dark');
+    expect(res.body.data.username).toBe('themeuser');
+    expect(res.body.data.email).toBe('theme@example.com');
+    expect(res.body.data.id).toBeDefined();
+  });
 });

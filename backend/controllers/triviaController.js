@@ -9,7 +9,15 @@ exports.submitScore = async (req, res) => {
     const score = await TriviaScore.create(req.body);
     res.status(201).json({
       success: true,
-      data: score
+      data: {
+        id: score._id,
+        _id: score._id,
+        score: score.score,
+        category: score.category,
+        user: {
+          username: req.user.username
+        }
+      }
     });
   } catch (err) {
     res.status(400).json({ error: err.message });

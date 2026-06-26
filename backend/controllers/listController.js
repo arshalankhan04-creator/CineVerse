@@ -42,23 +42,34 @@ exports.updateListItems = async (req, res) => {
       return res.status(404).json({ error: 'List not found' });
     }
 
-    const { item, action } = req.body; // action can be 'add' or 'remove'
+    const { items, item, action } = req.body;
 
-    if (action === 'add') {
-      // Check if item already exists
-      const exists = list.items.some(i => i.tmdbId === item.tmdbId);
-      if (!exists) {
-        list.items.push(item);
+    if (items !== undefined && Array.isArray(items)) {
+      list.items = items;
+    } else if (action && item) {
+      if (action === 'add') {
+        // Check if item already exists
+        const exists = list.items.some(i => i.tmdbId === item.tmdbId);
+        if (!exists) {
+          list.items.push(item);
+        }
+      } else if (action === 'remove') {
+        list.items = list.items.filter(i => i.tmdbId !== item.tmdbId);
       }
-    } else if (action === 'remove') {
-      list.items = list.items.filter(i => i.tmdbId !== item.tmdbId);
     }
 
     await list.save();
 
     res.status(200).json({
       success: true,
-      data: list
+      data: {
+        id: list._id,
+        _id: list._id,
+        name: list.name,
+        description: list.description,
+        items: list.items,
+        isPublic: list.isPublic
+      }
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -76,10 +87,7 @@ exports.deleteList = async (req, res) => {
       return res.status(404).json({ error: 'List not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      data: {}
-    });
+    res.status(200).json({ success: true, message: "List deleted", data: {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

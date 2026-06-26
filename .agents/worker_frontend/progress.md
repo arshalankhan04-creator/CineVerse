@@ -1,11 +1,11 @@
 # Progress
 
-Last visited: 2026-06-26T13:35:00Z
+Last visited: 2026-06-26T13:37:30Z
 
-- [ ] Initial codebase exploration
-- [ ] Implement AuthContext changes
-- [ ] Implement Navbar changes
-- [ ] Implement MovieDetail/TVDetail changes
-- [ ] Implement Lists page guest UI
-- [ ] Build and verify frontend changes
-- [ ] Document in handoff and notify caller
+- [x] Initial codebase exploration
+- [x] Implement AuthContext changes
+- [x] Implement Navbar changes
+- [x] Implement MovieDetail/TVDetail changes
+- [x] Implement Lists page guest UI
+- [x] Build and verify frontend changes
+- [x] Document in handoff and notify caller

@@ -84,6 +84,9 @@ describe('Watchlist API', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Item removed');
+    expect(res.body.data).toEqual({});
 
     const getRes = await request(app)
       .get('/api/watchlist')

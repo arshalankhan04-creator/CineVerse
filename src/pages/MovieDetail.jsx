@@ -20,7 +20,7 @@ import MovieCard from '../components/MovieCard';
 export default function MovieDetail() {
   const { id } = useParams();
   const { showToast } = useToast();
-  const { watchedList, toggleWatched } = useAuth();
+  const { watchedList, toggleWatched, watchlist, toggleWatchlist } = useAuth();
   
   // Data states
   const [movie, setMovie] = useState(null);
@@ -38,14 +38,13 @@ export default function MovieDetail() {
 
   // Modals & controls
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [isCollectionOpen, setIsCollectionOpen] = useState(false);
   const [activeStill, setActiveStill] = useState(null);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const WATCHLIST_KEY = 'cineverse_watchlist';
+  const isSaved = watchlist.some(item => (item.tmdbId || item.id) === (movie?.id || parseInt(id)));
 
   useEffect(() => {
     async function loadMovieData() {
@@ -108,11 +107,6 @@ export default function MovieDetail() {
         const localReviews = JSON.parse(localStorage.getItem(`cineverse_reviews_${id}`) || '[]');
         setCustomReviews(localReviews);
 
-        // Check if saved in watchlist
-        const savedList = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-        const exists = savedList.some(m => m.id === movieDetails.id);
-        setIsSaved(exists);
-
       } catch (err) {
         console.error('Error fetching movie details:', err);
         setError(err.message || 'Failed to load movie details.');
@@ -136,30 +130,7 @@ export default function MovieDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const toggleWatchlist = () => {
-    if (!movie) return;
-    const savedList = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-    let newList;
-    if (isSaved) {
-      newList = savedList.filter(m => m.id !== movie.id);
-      setIsSaved(false);
-      showToast('Removed ✗', 'info');
-    } else {
-      newList = [...savedList, {
-        id: movie.id,
-        title: movie.title,
-        name: movie.name,
-        poster_path: movie.poster_path,
-        vote_average: movie.vote_average,
-        release_date: movie.release_date,
-        first_air_date: movie.first_air_date
-      }];
-      setIsSaved(true);
-      showToast('Added to Watchlist ✓', 'success');
-    }
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
-    window.dispatchEvent(new Event('watchlist_updated'));
-  };
+
 
   const handleAddReview = (e) => {
     e.preventDefault();
@@ -273,7 +244,7 @@ export default function MovieDetail() {
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-stack-md mt-stack-lg w-full">
                 <button 
-                  onClick={toggleWatchlist}
+                  onClick={() => toggleWatchlist(movie)}
                   className={`text-label-md font-label-md py-3.5 px-7 rounded-full flex items-center gap-2 transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_4px_14px_rgba(0,0,0,0.3)] cursor-pointer ${
                     isSaved 
                       ? 'bg-transparent border border-outline hover:bg-white/5 text-on-surface' 

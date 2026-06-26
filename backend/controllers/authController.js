@@ -102,7 +102,40 @@ exports.getMe = async (req, res) => {
     const user = await User.findById(req.user.id);
     res.status(200).json({
       success: true,
-      data: user
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profileTheme: user.profileTheme,
+        favoriteGenres: user.favoriteGenres
+      }
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// @desc    Update user profile theme
+// @route   PUT /api/auth/me
+// @access  Private
+exports.updateProfileTheme = async (req, res) => {
+  try {
+    const { profileTheme } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profileTheme },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profileTheme: user.profileTheme
+      }
     });
   } catch (err) {
     res.status(400).json({ error: err.message });

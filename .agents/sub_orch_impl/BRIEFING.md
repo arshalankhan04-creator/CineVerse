@@ -46,19 +46,23 @@ Coordinate and implement all application features (Milestones M2 to M8) in the b
 - Dispatched initial explorer to analyze the current state of backend and frontend implementations (stalled).
 - Spawning a new explorer `explorer_gap` to perform the codebase analysis.
 - Dispatched `worker_backend` and `worker_frontend` to implement fixes based on the gap analysis.
+- Dispatched `worker_test_runner` to run and verify the backend Jest test suite.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
 | explorer_init | teamwork_preview_explorer | Codebase analysis & gap identification | stalled | 61679c43-8a8a-4661-b030-87d9e1653b80 |
 | explorer_gap | teamwork_preview_explorer | Codebase analysis & gap identification | completed | df166b32-db4b-4170-ae7c-dff4fcceef13 |
-| worker_backend | teamwork_preview_worker | Implement backend API fixes and run tests | in-progress | c4ce0170-a227-4d2c-8d0e-e337fc47fc80 |
-| worker_frontend | teamwork_preview_worker | Implement frontend auth/curation fixes | in-progress | c862966a-6f5b-4190-b3aa-cba2e74e0e3f |
+| worker_backend | teamwork_preview_worker | Implement backend API fixes and run tests | completed | c4ce0170-a227-4d2c-8d0e-e337fc47fc80 |
+| worker_frontend | teamwork_preview_worker | Implement frontend auth/curation fixes | completed | c862966a-6f5b-4190-b3aa-cba2e74e0e3f |
+| worker_test_runner | teamwork_preview_worker | Run backend Jest test suite | completed | 32eef568-fb0e-41a1-a1c8-ace0dec0659b |
+| worker_e2e_runner | teamwork_preview_worker | Run full E2E test suite | stalled | 895bee07-e56f-45bf-b990-96a617487bec |
+| impl_e2e_tester | teamwork_preview_worker | Run full E2E test suite | pending | TBD |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 4 / 16
-- Pending subagents: c4ce0170-a227-4d2c-8d0e-e337fc47fc80, c862966a-6f5b-4190-b3aa-cba2e74e0e3f
+- Spawn count: 7 / 16
+- Pending subagents: TBD
 - Predecessor: none
 - Successor: not yet spawned
 

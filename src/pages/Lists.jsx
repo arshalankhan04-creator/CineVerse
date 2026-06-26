@@ -144,17 +144,17 @@ export default function Lists() {
             <span className="material-symbols-outlined text-[72px] text-primary-container mb-6 drop-shadow-[0_0_20px_rgba(229,9,20,0.3)] animate-pulse">playlist_play</span>
             
             <h1 className="text-display-lg-mobile md:text-headline-lg font-black text-on-background tracking-tight mb-4">
-              Unlock Custom Collections
+              Your CineVerse Collections
             </h1>
             <p className="text-body-lg text-secondary max-w-md mb-8 leading-relaxed">
-              Create unlimited personal folders, organize your movies and TV shows, and access them from any device securely.
+              Sign in to manage your custom movie and TV show collections, organize your favorites, and keep track of your watchlists.
             </p>
             <button
               onClick={() => setAuthModalOpen(true)}
               className="bg-primary-container text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide hover:scale-105 active:scale-95 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px]">login</span>
-              Sign In to CineVerse
+              Sign In / Register
             </button>
           </div>
         </main>

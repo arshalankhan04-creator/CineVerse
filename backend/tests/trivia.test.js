@@ -26,7 +26,12 @@ describe('Trivia API', () => {
       });
 
     expect(res.statusCode).toEqual(201);
+    expect(res.body.success).toBe(true);
     expect(res.body.data.score).toBe(100);
+    expect(res.body.data.category).toBe('movies');
+    expect(res.body.data.id).toBeDefined();
+    expect(res.body.data._id).toBeDefined();
+    expect(res.body.data.user.username).toBe('triviauser');
   });
 
   it('should get global leaderboard', async () => {
