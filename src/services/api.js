@@ -51,7 +51,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  getMe: () => request('/auth/me'),
+  getMe: async () => {
+    const res = await request('/auth/me');
+    return res.data;
+  },
 
   updateProfileTheme: (theme) => 
     request('/auth/me', {
