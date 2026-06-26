@@ -45,17 +45,20 @@ Coordinate and implement all application features (Milestones M2 to M8) in the b
 ## Key Decisions Made
 - Dispatched initial explorer to analyze the current state of backend and frontend implementations (stalled).
 - Spawning a new explorer `explorer_gap` to perform the codebase analysis.
+- Dispatched `worker_backend` and `worker_frontend` to implement fixes based on the gap analysis.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
 | explorer_init | teamwork_preview_explorer | Codebase analysis & gap identification | stalled | 61679c43-8a8a-4661-b030-87d9e1653b80 |
-| explorer_gap | teamwork_preview_explorer | Codebase analysis & gap identification | in-progress | df166b32-db4b-4170-ae7c-dff4fcceef13 |
+| explorer_gap | teamwork_preview_explorer | Codebase analysis & gap identification | completed | df166b32-db4b-4170-ae7c-dff4fcceef13 |
+| worker_backend | teamwork_preview_worker | Implement backend API fixes and run tests | in-progress | c4ce0170-a227-4d2c-8d0e-e337fc47fc80 |
+| worker_frontend | teamwork_preview_worker | Implement frontend auth/curation fixes | in-progress | c862966a-6f5b-4190-b3aa-cba2e74e0e3f |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 2 / 16
-- Pending subagents: df166b32-db4b-4170-ae7c-dff4fcceef13
+- Spawn count: 4 / 16
+- Pending subagents: c4ce0170-a227-4d2c-8d0e-e337fc47fc80, c862966a-6f5b-4190-b3aa-cba2e74e0e3f
 - Predecessor: none
 - Successor: not yet spawned
 

@@ -72,112 +72,153 @@ export default function Quiz() {
     const totalQuestions = 10;
     
     for (let i = 0; i < totalQuestions; i++) {
-      // Pick a random question type: 0 = Higher rating, 1 = Older release, 2 = Guess by Overview, 3 = Guess the Year
-      const type = Math.floor(Math.random() * 4);
+      let question = null;
+      let attempts = 0;
       
-      if (type === 0) {
-        // Compare Ratings
-        const movieA = movies[Math.floor(Math.random() * movies.length)];
-        let movieB = movies[Math.floor(Math.random() * movies.length)];
-        while (movieB.id === movieA.id || movieB.vote_average === movieA.vote_average) {
-          movieB = movies[Math.floor(Math.random() * movies.length)];
-        }
-
-        const isACorrect = movieA.vote_average > movieB.vote_average;
-        generatedQuestions.push({
-          type: 0,
-          text: `Which movie has a higher average rating?`,
-          choices: [
-            { id: 'A', text: movieA.title, movie: movieA },
-            { id: 'B', text: movieB.title, movie: movieB }
-          ],
-          correctId: isACorrect ? 'A' : 'B',
-          explanation: `"${movieA.title}" has a rating of ${movieA.vote_average.toFixed(1)} while "${movieB.title}" is rated ${movieB.vote_average.toFixed(1)}.`
-        });
-      } 
-      else if (type === 1) {
-        // Compare Release Dates (Which is older?)
-        const movieA = movies[Math.floor(Math.random() * movies.length)];
-        let movieB = movies[Math.floor(Math.random() * movies.length)];
-        while (movieB.id === movieA.id || new Date(movieB.release_date).getFullYear() === new Date(movieA.release_date).getFullYear()) {
-          movieB = movies[Math.floor(Math.random() * movies.length)];
-        }
-
-        const dateA = new Date(movieA.release_date);
-        const dateB = new Date(movieB.release_date);
-        const isAOlder = dateA < dateB;
+      // Attempt up to 20 times to generate a question, falling back to simpler types to avoid loops
+      while (!question && attempts < 20) {
+        attempts++;
+        const type = attempts > 10 ? (Math.random() > 0.5 ? 2 : 3) : Math.floor(Math.random() * 4);
         
-        generatedQuestions.push({
-          type: 1,
-          text: `Which movie was released first (older)?`,
-          choices: [
-            { id: 'A', text: movieA.title, movie: movieA },
-            { id: 'B', text: movieB.title, movie: movieB }
-          ],
-          correctId: isAOlder ? 'A' : 'B',
-          explanation: `"${movieA.title}" was released in ${dateA.getFullYear()} and "${movieB.title}" was released in ${dateB.getFullYear()}.`
-        });
-      }
-      else if (type === 2) {
-        // Guess by Overview
-        const targetMovie = movies[Math.floor(Math.random() * movies.length)];
-        const choicesPool = [targetMovie];
-        
-        while (choicesPool.length < 4) {
-          const rand = movies[Math.floor(Math.random() * movies.length)];
-          if (!choicesPool.some(m => m.id === rand.id)) {
-            choicesPool.push(rand);
+        if (type === 0) {
+          // Compare Ratings
+          const movieA = movies[Math.floor(Math.random() * movies.length)];
+          const candidates = movies.filter(m => m.id !== movieA.id && m.vote_average !== movieA.vote_average);
+          if (candidates.length > 0) {
+            const movieB = candidates[Math.floor(Math.random() * candidates.length)];
+            const isACorrect = movieA.vote_average > movieB.vote_average;
+            question = {
+              type: 0,
+              text: `Which movie has a higher average rating?`,
+              choices: [
+                { id: 'A', text: movieA.title, movie: movieA },
+                { id: 'B', text: movieB.title, movie: movieB }
+              ],
+              correctId: isACorrect ? 'A' : 'B',
+              explanation: `"${movieA.title}" has a rating of ${movieA.vote_average.toFixed(1)} while "${movieB.title}" is rated ${movieB.vote_average.toFixed(1)}.`
+            };
+          }
+        } 
+        else if (type === 1) {
+          // Compare Release Dates (Which is older?)
+          const movieA = movies[Math.floor(Math.random() * movies.length)];
+          const dateA = new Date(movieA.release_date);
+          const yearA = dateA.getFullYear();
+          
+          if (!isNaN(yearA)) {
+            const candidates = movies.filter(m => {
+              if (m.id === movieA.id) return false;
+              const dateB = new Date(m.release_date);
+              const yearB = dateB.getFullYear();
+              return !isNaN(yearB) && yearB !== yearA;
+            });
+            
+            if (candidates.length > 0) {
+              const movieB = candidates[Math.floor(Math.random() * candidates.length)];
+              const dateB = new Date(movieB.release_date);
+              const isAOlder = dateA < dateB;
+              
+              question = {
+                type: 1,
+                text: `Which movie was released first (older)?`,
+                choices: [
+                  { id: 'A', text: movieA.title, movie: movieA },
+                  { id: 'B', text: movieB.title, movie: movieB }
+                ],
+                correctId: isAOlder ? 'A' : 'B',
+                explanation: `"${movieA.title}" was released in ${yearA} and "${movieB.title}" was released in ${dateB.getFullYear()}.`
+              };
+            }
           }
         }
+        else if (type === 2) {
+          // Guess by Overview
+          const targetMovie = movies[Math.floor(Math.random() * movies.length)];
+          const choicesPool = [targetMovie];
+          const candidates = movies.filter(m => m.id !== targetMovie.id);
+          
+          if (candidates.length >= 3) {
+            const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
+            choicesPool.push(...shuffledCandidates.slice(0, 3));
+            
+            const shuffledChoices = choicesPool
+              .map((m, idx) => ({ key: idx, m }))
+              .sort(() => Math.random() - 0.5)
+              .map((item, idx) => ({
+                id: String.fromCharCode(65 + idx), // A, B, C, D
+                text: item.m.title,
+                movie: item.m
+              }));
 
-        // Shuffle choices
-        const shuffledChoices = choicesPool
-          .map((m, idx) => ({ key: idx, m }))
-          .sort(() => Math.random() - 0.5)
-          .map((item, idx) => ({
-            id: String.fromCharCode(65 + idx), // A, B, C, D
-            text: item.m.title,
-            movie: item.m
-          }));
+            const correctChoice = shuffledChoices.find(c => c.movie.id === targetMovie.id);
 
-        const correctChoice = shuffledChoices.find(c => c.movie.id === targetMovie.id);
+            question = {
+              type: 2,
+              text: `Identify the movie from this description:\n"${targetMovie.overview.slice(0, 160)}..."`,
+              choices: shuffledChoices,
+              correctId: correctChoice.id,
+              explanation: `This describes "${targetMovie.title}".`
+            };
+          }
+        }
+        else {
+          // Guess the Year
+          const targetMovie = movies[Math.floor(Math.random() * movies.length)];
+          const correctYear = new Date(targetMovie.release_date).getFullYear();
+          
+          if (!isNaN(correctYear)) {
+            const years = new Set([correctYear]);
+            let yearAttempts = 0;
+            while (years.size < 4 && yearAttempts < 50) {
+              yearAttempts++;
+              const shift = Math.floor(Math.random() * 9) - 4; // -4 to +4 years
+              const year = correctYear + shift;
+              if (!isNaN(year)) {
+                years.add(year);
+              }
+            }
+            
+            if (years.size === 4) {
+              const shuffledYears = Array.from(years)
+                .sort(() => Math.random() - 0.5)
+                .map((y, idx) => ({
+                  id: String.fromCharCode(65 + idx),
+                  text: String(y),
+                  isCorrect: y === correctYear
+                }));
 
+              const correctChoice = shuffledYears.find(c => c.isCorrect);
+
+              question = {
+                type: 3,
+                text: `In what year was the movie "${targetMovie.title}" released?`,
+                choices: shuffledYears,
+                correctId: correctChoice.id,
+                explanation: `"${targetMovie.title}" was released in ${correctYear}.`
+              };
+            }
+          }
+        }
+      }
+      
+      if (question) {
+        generatedQuestions.push(question);
+      } else {
+        // Final fallback: generate a simple guess by overview
+        const targetMovie = movies[0];
+        const choices = movies.slice(0, 4).map((m, idx) => ({
+          id: String.fromCharCode(65 + idx),
+          text: m.title,
+          movie: m
+        }));
+        const correctChoice = choices.find(c => c.movie.id === targetMovie.id);
+        
         generatedQuestions.push({
           type: 2,
           text: `Identify the movie from this description:\n"${targetMovie.overview.slice(0, 160)}..."`,
-          choices: shuffledChoices,
+          choices,
           correctId: correctChoice.id,
           explanation: `This describes "${targetMovie.title}".`
-        });
-      }
-      else {
-        // Guess the Year
-        const targetMovie = movies[Math.floor(Math.random() * movies.length)];
-        const correctYear = new Date(targetMovie.release_date).getFullYear();
-        
-        // Generate 3 alternate years
-        const years = new Set([correctYear]);
-        while (years.size < 4) {
-          const shift = Math.floor(Math.random() * 9) - 4; // -4 to +4 years
-          years.add(correctYear + shift);
-        }
-
-        const shuffledYears = Array.from(years)
-          .sort(() => Math.random() - 0.5)
-          .map((y, idx) => ({
-            id: String.fromCharCode(65 + idx),
-            text: String(y),
-            isCorrect: y === correctYear
-          }));
-
-        const correctChoice = shuffledYears.find(c => c.isCorrect);
-
-        generatedQuestions.push({
-          type: 3,
-          text: `In what year was the movie "${targetMovie.title}" released?`,
-          choices: shuffledYears,
-          correctId: correctChoice.id,
-          explanation: `"${targetMovie.title}" was released in ${correctYear}.`
         });
       }
     }
@@ -309,7 +350,7 @@ export default function Quiz() {
                     </thead>
                     <tbody>
                       {leaderboard.slice(0, 5).map((entry, idx) => {
-                        const date = new Date(entry.playedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        const date = new Date(entry.createdAt || entry.playedAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                         const isFirst = idx === 0;
                         const isSecond = idx === 1;
                         const isThird = idx === 2;
@@ -327,7 +368,7 @@ export default function Quiz() {
                                 <span className="text-secondary/70">{idx + 1}</span>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 font-semibold text-on-background">{entry.username}</td>
+                            <td className="px-4 py-2.5 font-semibold text-on-background">{entry.user?.username || entry.username || 'Unknown'}</td>
                             <td className="px-4 py-2.5 text-right font-bold text-primary-container">{entry.score} / 10</td>
                             <td className="px-4 py-2.5 text-right text-secondary/50">{date}</td>
                           </tr>

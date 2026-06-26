@@ -53,6 +53,19 @@ export const AuthProvider = ({ children }) => {
     checkSession();
   }, []);
 
+  useEffect(() => {
+    const handleWatchlistUpdated = () => {
+      if (!user) {
+        const localList = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
+        setWatchlist(localList);
+      }
+    };
+    window.addEventListener('watchlist_updated', handleWatchlistUpdated);
+    return () => {
+      window.removeEventListener('watchlist_updated', handleWatchlistUpdated);
+    };
+  }, [user]);
+
   const applyThemeClass = (themeId) => {
     const THEMES = ['theme-emerald', 'theme-ocean', 'theme-amber', 'theme-purple'];
     THEMES.forEach(t => document.documentElement.classList.remove(t));
@@ -195,6 +208,16 @@ export const AuthProvider = ({ children }) => {
     window.dispatchEvent(new Event('lists_updated'));
   };
 
+  const updateProfileTheme = async (themeId) => {
+    try {
+      await api.updateProfileTheme(themeId);
+      setUser(prev => prev ? { ...prev, profileTheme: themeId } : prev);
+      applyThemeClass(themeId);
+    } catch (err) {
+      showToast(err.message || 'Failed to update theme', 'error');
+    }
+  };
+
   const toggleWatchlist = async (movie) => {
     const movieId = movie.id || movie.tmdbId;
     const titleText = movie.title || movie.name;
@@ -308,7 +331,8 @@ export const AuthProvider = ({ children }) => {
         toggleWatched,
         watchedList,
         watchedStats,
-        setUser
+        setUser,
+        updateProfileTheme
       }}
     >
       {children}

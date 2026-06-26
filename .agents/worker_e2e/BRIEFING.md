@@ -1,4 +1,4 @@
-# BRIEFING — 2026-06-26T17:54:00+05:30
+# BRIEFING — 2026-06-26T19:15:00+05:30
 
 ## Mission
 Implement 71 opaque-box end-to-end tests for CineVerse, verifying all requirements across 4 tiers of features and configurations, and document the test infrastructure.
@@ -17,8 +17,8 @@ Implement 71 opaque-box end-to-end tests for CineVerse, verifying all requiremen
 - Test Runner configuration in `e2e-tests/jest.config.js` and runner command run from `backend/` directory.
 
 ## Current Parent
-- Conversation ID: 521b13d2-35d7-4c7a-89e9-3335be324667
-- Updated: not yet
+- Conversation ID: 38d375db-22bd-4a52-b2d4-7608c67dd04c
+- Updated: 2026-06-26T19:00:20+05:30
 
 ## Task Summary
 - **What to build**: E2E test runner configuration, setup script with MongoMemoryServer, and 71 opaque-box Jest tests covering registration, login, profile, watchlist, collections, trivia, combinations, and real-world scenarios. Write TEST_INFRA.md and TEST_READY.md.
@@ -29,16 +29,22 @@ Implement 71 opaque-box end-to-end tests for CineVerse, verifying all requiremen
 ## Key Decisions Made
 - Use memory database (MongoMemoryServer) for clean-slate, reliable test state.
 - Keep tests completely decoupled from internal mongoose schemas (opaque-box).
+- Implemented smart Node runner script to handle cross-platform npx command spawning and automatic execution in correct directory.
 
 ## Artifact Index
-- [TBD]
+- `e2e-tests/watchlist.test.js` - F4 (Watchlist Curation) tests (10 tests)
+- `e2e-tests/collections.test.js` - F5 (Custom Collection Management) tests (10 tests)
+- `e2e-tests/trivia.test.js` - F6 (Trivia & Leaderboard) tests (10 tests)
+- `e2e-tests/combinations.test.js` - Tier 3 cross-feature (6 tests) and Tier 4 scenarios (5 tests)
+- `e2e-tests/runner.js` - Spawns Jest inside `backend/` using the custom config file.
+- `TEST_READY.md` - Confirms coverage and lists execution instructions.
 
 ## Change Tracker
-- **Files modified**: [TBD]
-- **Build status**: [TBD]
-- **Pending issues**: [TBD]
+- **Files modified**: `e2e-tests/watchlist.test.js`, `e2e-tests/collections.test.js`, `e2e-tests/trivia.test.js`, `e2e-tests/combinations.test.js`, `e2e-tests/runner.js`, `TEST_READY.md`
+- **Build status**: Pass
+- **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: [TBD]
-- **Lint status**: [TBD]
-- **Tests added/modified**: [TBD]
+- **Build/test result**: Pass
+- **Lint status**: 0 violations
+- **Tests added/modified**: 41 new E2E tests added (watchlist: 10, collections: 10, trivia: 10, combinations/scenarios: 11)

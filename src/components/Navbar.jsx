@@ -16,8 +16,15 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  const { user, setAuthModalOpen, logoutUser } = useAuth();
+  const { user, setAuthModalOpen, logoutUser, updateProfileTheme } = useAuth();
   const [activeTheme, setActiveTheme] = useState('default');
+
+  useEffect(() => {
+    if (user && user.profileTheme) {
+      setActiveTheme(user.profileTheme);
+      applyTheme(user.profileTheme);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -53,6 +60,9 @@ export default function Navbar() {
     setActiveTheme(themeId);
     applyTheme(themeId);
     localStorage.setItem('cineverse_theme', themeId);
+    if (user) {
+      updateProfileTheme(themeId);
+    }
   };
 
   const isActive = (path) => location.pathname === path;
