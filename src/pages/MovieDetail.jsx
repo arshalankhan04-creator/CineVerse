@@ -353,7 +353,14 @@ export default function MovieDetail() {
                 </button>
 
                 <button 
-                  onClick={() => setIsCollectionOpen(true)}
+                  onClick={() => {
+                    if (!user) {
+                      setAuthModalOpen(true);
+                      showToast('Please sign in to manage custom collections', 'info');
+                    } else {
+                      setIsCollectionOpen(true);
+                    }
+                  }}
                   className="glass-panel text-on-background text-xs md:text-label-md font-label-md py-2 px-3 md:py-3.5 md:px-4 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer"
                   title="Add to Custom Collection"
                 >

@@ -6,7 +6,7 @@ import MovieCard from '../components/MovieCard';
 
 export default function Lists() {
   const { showToast } = useToast();
-  const { user, setAuthModalOpen } = useAuth();
+  const { user, loading: authLoading, setAuthModalOpen } = useAuth();
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -148,6 +148,14 @@ export default function Lists() {
       media_type: item.mediaType || item.media_type,
     }));
   };
+
+  if (authLoading) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary-container/20 border-t-primary-container rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   // If user is logged out, show a beautiful sign-in prompt placeholder
   if (!user) {

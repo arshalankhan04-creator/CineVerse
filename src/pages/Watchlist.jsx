@@ -4,7 +4,43 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Watchlist() {
   const navigate = useNavigate();
-  const { user, watchlist, toggleWatchlist, setAuthModalOpen } = useAuth();
+  const { user, loading: authLoading, watchlist, toggleWatchlist, setAuthModalOpen } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary-container/20 border-t-primary-container rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 page-transition text-left">
+        <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col items-center justify-center py-20 text-center">
+          <div className="glass-panel rounded-3xl p-12 max-w-2xl mx-auto border border-white/5 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary-container/10 rounded-full blur-[100px]"></div>
+            
+            <span className="material-symbols-outlined text-[72px] text-primary-container mb-6 drop-shadow-[0_0_20px_rgba(229,9,20,0.3)] animate-pulse">bookmark</span>
+            
+            <h1 className="text-display-lg-mobile md:text-headline-lg font-black text-on-background tracking-tight mb-4">
+              Your CineVerse Watchlist
+            </h1>
+            <p className="text-body-lg text-secondary max-w-md mb-8 leading-relaxed">
+              Sign in to save movies and TV shows to your personal watchlist, sync them across devices, and access personalized viewing stats.
+            </p>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="bg-primary-container text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide hover:scale-105 active:scale-95 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">login</span>
+              Sign In / Register
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Normalize movie structure to support both local storage and database formats
   const normalizedWatchlist = watchlist.map(movie => ({

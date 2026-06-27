@@ -6,7 +6,7 @@ import ErrorDisplay from '../components/ErrorDisplay';
 import { useAuth } from '../context/AuthContext';
 
 export default function Stats() {
-  const { user, watchedList, watchlist: authWatchlist, setAuthModalOpen } = useAuth();
+  const { user, loading: authLoading, watchedList, watchlist: authWatchlist, setAuthModalOpen } = useAuth();
   const [itemsList, setItemsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,8 +31,8 @@ export default function Stats() {
         setLoading(true);
         setError(null);
 
-        // Use watched history for logged-in users, fallback to watchlist for guests
-        let listToUse;
+        // Use watched history for logged-in users, fallback to watchlist
+        let listToUse = [];
         if (user && watchedList.length > 0) {
           listToUse = watchedList.map(item => ({
             id: item.tmdbId,
@@ -43,12 +43,6 @@ export default function Stats() {
           listToUse = authWatchlist.map(item => ({
             id: item.tmdbId,
             type: item.mediaType
-          }));
-        } else {
-          const localList = JSON.parse(localStorage.getItem('cineverse_watchlist') || '[]');
-          listToUse = localList.map(item => ({
-            id: item.id,
-            type: (item.first_air_date || (!item.title && item.name)) ? 'tv' : 'movie'
           }));
         }
 
@@ -166,6 +160,45 @@ export default function Stats() {
     }
     return `${hrs}h`;
   };
+
+  if (authLoading) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-24 pb-12">
+        <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop animate-pulse">
+          <h1 className="text-display-lg-mobile md:text-display-lg font-black text-on-background text-left">Verifying session...</h1>
+          <SkeletonLoader type="home" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 page-transition text-left">
+        <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col items-center justify-center py-20 text-center">
+          <div className="glass-panel rounded-3xl p-12 max-w-2xl mx-auto border border-white/5 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary-container/10 rounded-full blur-[100px]"></div>
+            
+            <span className="material-symbols-outlined text-[72px] text-primary-container mb-6 drop-shadow-[0_0_20px_rgba(229,9,20,0.3)] animate-pulse">monitoring</span>
+            
+            <h1 className="text-display-lg-mobile md:text-headline-lg font-black text-on-background tracking-tight mb-4">
+              CineVerse Stats Wrapped
+            </h1>
+            <p className="text-body-lg text-secondary max-w-md mb-8 leading-relaxed">
+              Sign in to view your personalized viewing statistics, see your favorite genres, track total watch time, and look at your budget/revenue overview.
+            </p>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="bg-primary-container text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide hover:scale-105 active:scale-95 transition-all shadow-[0_4px_20px_rgba(229,9,20,0.4)] flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">login</span>
+              Sign In / Register
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

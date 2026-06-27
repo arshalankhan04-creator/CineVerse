@@ -6,7 +6,7 @@ import { getGenreList, getTVGenreList } from '../services/tmdb';
 
 export default function Profile() {
   const { showToast } = useToast();
-  const { user, watchlist, watchedStats, setAuthModalOpen, setUser } = useAuth();
+  const { user, loading: authLoading, watchlist, watchedStats, setAuthModalOpen, setUser } = useAuth();
   const [favoriteGenres, setFavoriteGenres] = useState(user?.favoriteGenres || []);
   const [availableGenres, setAvailableGenres] = useState([]);
 
@@ -89,6 +89,14 @@ export default function Profile() {
   const joinedDate = user && user.createdAt 
     ? new Date(user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
     : 'June 2026';
+
+  if (authLoading) {
+    return (
+      <div className="bg-level-0 min-h-screen pt-28 pb-16 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary-container/20 border-t-primary-container rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   // If user is logged out, show premium sign-in prompt placeholder
   if (!user) {
