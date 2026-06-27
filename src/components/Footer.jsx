@@ -16,8 +16,13 @@ export default function Footer() {
         <a className="text-label-sm font-label-sm text-on-secondary-container hover:text-primary-container transition-colors" href="#">Help Center</a>
       </div>
       
-      <div className="text-label-sm font-label-sm text-secondary">
-        © 2024 CineVerse. All rights reserved.
+      <div className="flex flex-col items-center md:items-end gap-1 text-center md:text-right">
+        <p className="text-label-sm font-label-sm text-secondary">
+          © 2024 CineVerse. All rights reserved.
+        </p>
+        <p className="text-[10px] font-medium text-secondary/60">
+          Movie data powered by TMDB. Built for educational purposes only.
+        </p>
       </div>
     </footer>
   );
