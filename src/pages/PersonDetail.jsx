@@ -1,16 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPersonDetails, getPersonCredits, getPersonProfileUrl, getMoviePosterUrl } from '../services/tmdb';
+import { 
+  getPersonDetails, 
+  getPersonCredits, 
+  getPersonProfileUrl, 
+  getMoviePosterUrl, 
+  getPersonExternalIds 
+} from '../services/tmdb';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ErrorDisplay from '../components/ErrorDisplay';
 
 export default function PersonDetail() {
   const { id } = useParams();
   const [person, setPerson] = useState(null);
-  const [credits, setCredits] = useState([]);
+  const [rawCredits, setRawCredits] = useState([]);
   const [popularCredits, setPopularCredits] = useState([]);
+  const [socialIds, setSocialIds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Custom interactive states
+  const [bioExpanded, setBioExpanded] = useState(false);
+  const [selectedMediaType, setSelectedMediaType] = useState('all');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [availableDepartments, setAvailableDepartments] = useState([]);
 
   useEffect(() => {
     async function loadPersonData() {
@@ -18,17 +31,39 @@ export default function PersonDetail() {
         setLoading(true);
         setError(null);
         
-        const [detailsRes, creditsRes] = await Promise.all([
+        const [detailsRes, creditsRes, externalIdsRes] = await Promise.all([
           getPersonDetails(id),
-          getPersonCredits(id)
+          getPersonCredits(id),
+          getPersonExternalIds(id).catch(() => ({}))
         ]);
 
         setPerson(detailsRes);
+        setSocialIds(externalIdsRes);
 
-        // Sort credits by popularity/vote_count to show top ones
-        const allCredits = [...(creditsRes.cast || []), ...(creditsRes.crew || [])];
+        // Normalize credits data (cast + crew combined)
+        const castCredits = (creditsRes.cast || []).map(item => ({
+          ...item,
+          department: 'Acting',
+          job: item.character ? `as ${item.character}` : 'Actor'
+        }));
         
-        // Remove duplicates (e.g. if acted and crewed in same project)
+        const crewCredits = (creditsRes.crew || []).map(item => ({
+          ...item,
+          department: item.department || 'Crew',
+          job: item.job || 'Crew'
+        }));
+
+        const allCredits = [...castCredits, ...crewCredits];
+        setRawCredits(allCredits);
+
+        // Extract available unique departments dynamically
+        const depts = new Set();
+        allCredits.forEach(c => {
+          if (c.department) depts.add(c.department);
+        });
+        setAvailableDepartments(Array.from(depts).sort());
+
+        // Deduplicate credits by ID for the "Known For" slider
         const uniqueCreditsMap = {};
         allCredits.forEach(item => {
           if (!uniqueCreditsMap[item.id]) {
@@ -37,17 +72,9 @@ export default function PersonDetail() {
         });
         const uniqueCredits = Object.values(uniqueCreditsMap);
 
-        // Sort by vote count to get the "Popular/Famous" credits
+        // Sort by vote count to get the "Popular/Notable" credits
         const sortedByPopular = [...uniqueCredits].sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
         setPopularCredits(sortedByPopular.slice(0, 10));
-
-        // Filmography: sort by release date or first air date descending
-        const sortedByDate = [...uniqueCredits].sort((a, b) => {
-          const dateA = new Date(a.release_date || a.first_air_date || '1970-01-01');
-          const dateB = new Date(b.release_date || b.first_air_date || '1970-01-01');
-          return dateB - dateA;
-        });
-        setCredits(sortedByDate);
 
       } catch (err) {
         console.error('Error fetching person details:', err);
@@ -72,11 +99,39 @@ export default function PersonDetail() {
     return <ErrorDisplay error={error} retryAction={() => window.location.reload()} />;
   }
 
+  // Calculate age
   const age = person.birthday
     ? new Date().getFullYear() - new Date(person.birthday).getFullYear() - (
         new Date() < new Date(new Date().getFullYear(), new Date(person.birthday).getMonth(), new Date(person.birthday).getDate()) ? 1 : 0
       )
     : null;
+
+  // Biography truncation
+  const hasLongBio = person.biography && person.biography.length > 350;
+  const displayBio = bioExpanded 
+    ? person.biography 
+    : (hasLongBio ? `${person.biography.slice(0, 350)}...` : person.biography || `We don't have a biography for ${person.name} yet.`);
+
+  // Dynamically filter combined filmography credits
+  const filteredCredits = rawCredits.filter(item => {
+    const isTV = item.media_type === 'tv' || (!item.title && item.name);
+    
+    // Media type filter
+    if (selectedMediaType === 'movie' && isTV) return false;
+    if (selectedMediaType === 'tv' && !isTV) return false;
+
+    // Department filter
+    if (selectedDepartment !== 'all' && item.department !== selectedDepartment) return false;
+
+    return true;
+  });
+
+  // Sort filtered timeline chronologically descending
+  const sortedTimeline = [...filteredCredits].sort((a, b) => {
+    const dateA = new Date(a.release_date || a.first_air_date || '1970-01-01');
+    const dateB = new Date(b.release_date || b.first_air_date || '1970-01-01');
+    return dateB - dateA;
+  });
 
   return (
     <div className="bg-level-0 min-h-screen pt-24 pb-stack-lg page-transition">
@@ -96,6 +151,49 @@ export default function PersonDetail() {
                 className="w-full h-full object-cover"
               />
             </div>
+
+            {/* Social Links */}
+            {socialIds && (socialIds.instagram_id || socialIds.twitter_id || socialIds.imdb_id) && (
+              <div className="flex items-center gap-5 justify-center w-full py-2 border-b border-white/5 pb-4">
+                {socialIds.instagram_id && (
+                  <a 
+                    href={`https://instagram.com/${socialIds.instagram_id}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-secondary hover:text-primary-container transition-colors"
+                    title="Instagram Profile"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                    </svg>
+                  </a>
+                )}
+                {socialIds.twitter_id && (
+                  <a 
+                    href={`https://twitter.com/${socialIds.twitter_id}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-secondary hover:text-primary-container transition-colors"
+                    title="Twitter/X Profile"
+                  >
+                    <svg className="w-4.5 h-4.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </a>
+                )}
+                {socialIds.imdb_id && (
+                  <a 
+                    href={`https://www.imdb.com/name/${socialIds.imdb_id}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:scale-105 active:scale-95 transition-all shrink-0"
+                    title="IMDb Profile"
+                  >
+                    <span className="font-extrabold text-[10px] bg-yellow-500 text-black px-2 py-0.5 rounded font-sans tracking-tighter shadow-md">IMDb</span>
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Profile Stats Cards */}
             <div className="w-full glass-panel rounded-2xl p-6 flex flex-col gap-4 text-left">
@@ -162,14 +260,25 @@ export default function PersonDetail() {
             </div>
 
             {/* Biography */}
-            <div className="glass-panel rounded-2xl p-6 md:p-8">
+            <div className="glass-panel rounded-2xl p-6 md:p-8 flex flex-col">
               <h2 className="text-headline-md font-bold text-on-background mb-4 flex items-center gap-2 border-b border-white/5 pb-2">
                 <span className="material-symbols-outlined text-primary-container">person</span>
                 Biography
               </h2>
               <p className="text-body-md text-secondary leading-relaxed whitespace-pre-line">
-                {person.biography || `We don't have a biography for ${person.name} yet.`}
+                {displayBio}
               </p>
+              {hasLongBio && (
+                <button 
+                  onClick={() => setBioExpanded(!bioExpanded)} 
+                  className="text-primary-container hover:underline font-bold text-xs mt-3 self-start flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{bioExpanded ? 'Read Less' : 'Read More'}</span>
+                  <span className="material-symbols-outlined text-[14px]">
+                    {bioExpanded ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Known For Carousel */}
@@ -218,9 +327,9 @@ export default function PersonDetail() {
                             <h3 className="text-label-md font-bold text-on-background line-clamp-1 group-hover:text-primary-container transition-colors">
                               {displayTitle}
                             </h3>
-                            {item.character && (
-                              <p className="text-[11px] text-secondary truncate mt-0.5" title={item.character}>
-                                as {item.character}
+                            {item.job && (
+                              <p className="text-[11px] text-secondary truncate mt-0.5" title={item.job}>
+                                {item.job}
                               </p>
                             )}
                           </div>
@@ -233,48 +342,89 @@ export default function PersonDetail() {
               </div>
             )}
 
-            {/* Filmography Timeline */}
-            {credits.length > 0 && (
+            {/* Filmography Timeline with Dropdown Filters */}
+            {rawCredits.length > 0 && (
               <div className="glass-panel rounded-2xl p-6">
-                <h2 className="text-headline-md font-bold text-on-background mb-4 flex items-center gap-2 border-b border-white/5 pb-2">
-                  <span className="material-symbols-outlined text-primary-container">history</span>
-                  Filmography
-                </h2>
-                
-                <div className="flex flex-col mt-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
-                  {credits.map((item, index) => {
-                    const isTV = item.media_type === 'tv' || (!item.title && item.name);
-                    const linkUrl = isTV ? `/tv/${item.id}` : `/movie/${item.id}`;
-                    const displayTitle = item.title || item.name;
-                    const dateVal = item.release_date || item.first_air_date;
-                    const yearVal = dateVal ? new Date(dateVal).getFullYear() : '—';
-                    const role = item.character ? `as ${item.character}` : item.job ? `(${item.job})` : '';
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 mb-4 gap-4">
+                  <h2 className="text-headline-md font-bold text-on-background flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary-container">history</span>
+                    Filmography
+                  </h2>
 
-                    return (
-                      <div 
-                        key={`${item.media_type || 'credit'}-${item.id}-${index}`}
-                        className="flex gap-4 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 rounded-lg transition-colors items-center"
+                  {/* Filters dropdown list */}
+                  <div className="flex gap-3 items-center">
+                    <div className="flex flex-col gap-1 text-left">
+                      <label className="text-[9px] uppercase font-bold text-secondary tracking-wider">Format</label>
+                      <select
+                        value={selectedMediaType}
+                        onChange={(e) => setSelectedMediaType(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-bold text-on-background focus:outline-none focus:border-primary-container cursor-pointer transition-colors"
                       >
-                        <span className="w-12 text-body-md font-bold text-primary-container font-mono text-center">
-                          {yearVal}
-                        </span>
-                        
-                        <div className="flex-1 text-left">
-                          <Link 
-                            to={linkUrl}
-                            className="text-body-md font-bold text-on-background hover:text-primary-container transition-colors block"
-                          >
-                            {displayTitle}
-                          </Link>
-                          {role && <p className="text-xs text-secondary mt-0.5">{role}</p>}
-                        </div>
+                        <option value="all" className="bg-level-2 text-on-background">All Formats</option>
+                        <option value="movie" className="bg-level-2 text-on-background">Movies</option>
+                        <option value="tv" className="bg-level-2 text-on-background">TV Shows</option>
+                      </select>
+                    </div>
 
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-outline-variant/35 bg-surface-container text-secondary">
-                          {isTV ? 'TV' : 'Movie'}
-                        </span>
-                      </div>
-                    );
-                  })}
+                    <div className="flex flex-col gap-1 text-left">
+                      <label className="text-[9px] uppercase font-bold text-secondary tracking-wider">Department</label>
+                      <select
+                        value={selectedDepartment}
+                        onChange={(e) => setSelectedDepartment(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-bold text-on-background focus:outline-none focus:border-primary-container cursor-pointer transition-colors"
+                      >
+                        <option value="all" className="bg-level-2 text-on-background">All Departments</option>
+                        {availableDepartments.map(dept => (
+                          <option key={dept} value={dept} className="bg-level-2 text-on-background">{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
+                  {sortedTimeline.length === 0 ? (
+                    <p className="text-secondary text-sm text-center py-12">No credits match the selected filters.</p>
+                  ) : (
+                    sortedTimeline.map((item, index) => {
+                      const isTV = item.media_type === 'tv' || (!item.title && item.name);
+                      const linkUrl = isTV ? `/tv/${item.id}` : `/movie/${item.id}`;
+                      const displayTitle = item.title || item.name;
+                      const dateVal = item.release_date || item.first_air_date;
+                      const yearVal = dateVal ? new Date(dateVal).getFullYear() : '—';
+                      const role = item.job || '';
+
+                      return (
+                        <div 
+                          key={`${item.media_type || 'credit'}-${item.id}-${index}`}
+                          className="flex gap-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 rounded-lg transition-colors items-center"
+                        >
+                          <span className="w-12 text-body-md font-bold text-primary-container font-mono text-center shrink-0">
+                            {yearVal}
+                          </span>
+                          
+                          <div className="flex-grow text-left overflow-hidden">
+                            <Link 
+                              to={linkUrl}
+                              className="text-body-md font-bold text-on-background hover:text-primary-container transition-colors block truncate"
+                            >
+                              {displayTitle}
+                            </Link>
+                            {role && <p className="text-xs text-secondary mt-0.5 truncate">{role}</p>}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded border border-outline-variant/35 bg-surface-container text-secondary">
+                              {item.department}
+                            </span>
+                            <span className="text-[9px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-primary-container/10 border border-primary-container/20 text-primary-container">
+                              {isTV ? 'TV' : 'Movie'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

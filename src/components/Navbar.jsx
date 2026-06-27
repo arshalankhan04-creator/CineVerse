@@ -134,6 +134,14 @@ export default function Navbar() {
             Explore
           </Link>
           <Link 
+            to="/people" 
+            className={`text-label-md font-label-md transition-all duration-200 hover:text-white ${
+              isActive('/people') ? 'text-primary-container font-bold border-b-2 border-primary-container pb-0.5' : 'text-secondary'
+            }`}
+          >
+            People
+          </Link>
+          <Link 
             to="/watchlist" 
             className={`text-label-md font-label-md transition-all duration-200 hover:text-white ${
               isActive('/watchlist') ? 'text-primary-container font-bold border-b-2 border-primary-container pb-0.5' : 'text-secondary'
@@ -344,6 +352,13 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen(false)}
           >
             Explore
+          </Link>
+          <Link 
+            to="/people" 
+            className={`text-body-lg py-2 border-b border-white/5 ${isActive('/people') ? 'text-primary-container font-bold' : 'text-secondary'}`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            People
           </Link>
           <Link 
             to="/watchlist" 

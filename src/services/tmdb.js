@@ -56,6 +56,8 @@ export const getTVShowsByGenre = (genreId, page = 1) => fetchFromTMDB('/discover
 // Person Endpoints
 export const getPersonDetails = (id) => fetchFromTMDB(`/person/${id}`);
 export const getPersonCredits = (id) => fetchFromTMDB(`/person/${id}/combined_credits`);
+export const getPopularPeople = (page = 1) => fetchFromTMDB('/person/popular', { page });
+export const getPersonExternalIds = (id) => fetchFromTMDB(`/person/${id}/external_ids`);
 
 // Discovery Endpoints
 export const discoverMovies = (queryParams = {}) => fetchFromTMDB('/discover/movie', queryParams);

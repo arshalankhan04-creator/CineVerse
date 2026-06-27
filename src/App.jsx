@@ -19,6 +19,7 @@ import Lists from './pages/Lists';
 import SharedList from './pages/SharedList';
 import Calendar from './pages/Calendar';
 import Stats from './pages/Stats';
+import People from './pages/People';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/person/:id" element={<PersonDetail />} />
+          <Route path="/people" element={<People />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/recommend" element={<Recommend />} />
