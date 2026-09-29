@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
-  // Support CORS â€” restrict to your own domain in production
-  const allowedOrigin = process.env.ALLOWED_ORIGIN || '';
+  // Support CORS — restrict to your own domain in production
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -31,7 +31,8 @@ export default async function handler(req, res) {
   }
 
   const API_BASE = 'https://api.themoviedb.org/3';
-  const TMDB_KEY = process.env.REACT_APP_TMDB_KEY || process.env.VITE_TMDB_KEY || '';
+  // TMDB_API_KEY has no framework prefix so it works in serverless functions at runtime
+  const TMDB_KEY = process.env.TMDB_API_KEY || process.env.REACT_APP_TMDB_KEY || process.env.VITE_TMDB_KEY || '';
 
   const headers = {
     accept: 'application/json',
